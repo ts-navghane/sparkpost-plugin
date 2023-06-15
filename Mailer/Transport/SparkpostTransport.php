@@ -6,19 +6,17 @@ namespace MauticPlugin\SparkpostBundle\Mailer\Transport;
 
 use Mautic\EmailBundle\Mailer\Message\MauticMessage;
 use Mautic\EmailBundle\Mailer\Transport\AbstractTokenArrayTransport;
-use Mautic\EmailBundle\Mailer\Transport\CallbackTransportInterface;
 use Mautic\EmailBundle\Model\TransportCallback;
 use Mautic\LeadBundle\Entity\DoNotContact;
 use MauticPlugin\SparkpostBundle\Mailer\Factory\SparkpostFactoryInterface;
 use Psr\Log\LoggerInterface;
 use SparkPost\SparkPost;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Mailer\SentMessage;
 use Symfony\Component\Mime\Email;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
-class SparkpostTransport extends AbstractTokenArrayTransport implements CallbackTransportInterface
+class SparkpostTransport extends AbstractTokenArrayTransport
 {
     private const SPARK_POST_HOSTS = [
         'us' => 'api.sparkpost.com',
@@ -54,7 +52,7 @@ class SparkpostTransport extends AbstractTokenArrayTransport implements Callback
                 $this->processImmediateSendFeedback($sparkPostMessage, $body);
                 throw new \Exception($errorMessage);
             }
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             throw new \Exception($e->getMessage());
         }
     }
@@ -74,50 +72,12 @@ class SparkpostTransport extends AbstractTokenArrayTransport implements Callback
         return '';
     }
 
-    public function processCallbackRequest(Request $request): void
-    {
-        $payload = $request->request->all();
-
-        foreach ($payload as $msys) {
-            $msys = $msys['msys'];
-            if (isset($msys['message_event'])) {
-                $event = $msys['message_event'];
-            } elseif (isset($msys['unsubscribe_event'])) {
-                $event = $msys['unsubscribe_event'];
-            } else {
-                continue;
-            }
-
-            if (isset($event['rcpt_type']) && 'to' !== $event['rcpt_type']) {
-                // Ignore cc/bcc
-
-                continue;
-            }
-
-            if (
-                'bounce' === $event['type']
-                && !in_array((int) $event['bounce_class'], [10, 30, 50, 51, 52, 53, 54, 90])
-            ) {
-                // Only parse hard bounces - https://support.sparkpost.com/customer/portal/articles/1929896-bounce-classification-codes
-                continue;
-            }
-
-            if (isset($event['rcpt_meta']['hashId']) && $hashId = $event['rcpt_meta']['hashId']) {
-                $this->processCallbackByHashId($hashId, $event);
-
-                continue;
-            }
-
-            $this->processCallbackByEmailAddress($event['rcpt_to'], $event);
-        }
-    }
-
-    private function getSparkPostMessage(SentMessage $message)
+    private function getSparkPostMessage(SentMessage $message): array
     {
         $email = $message->getOriginalMessage();
 
         if (!$email instanceof MauticMessage) {
-            throw new Exception('Message must be an instance of '.MauticMessage::class);
+            throw new \Exception('Message must be an instance of '.MauticMessage::class);
         }
 
         $this->message        = $email;
@@ -158,35 +118,39 @@ class SparkpostTransport extends AbstractTokenArrayTransport implements Callback
             $tags = explode(',', $message['headers']['X-MC-Tags']);
         }
 
+        $recipients = $this->getRecipients($message, $metadata, $mergeVars);
+        $content    = $this->getContent($message);
+
+        $sparkPostMessage = [
+            'content'     => $content,
+            'recipients'  => $recipients,
+            'inline_css'  => $inlineCss,
+            'tags'        => $tags,
+            'campaign_id' => $campaignId,
+        ];
+
+        if (!empty($message['attachments'])) {
+            foreach ($message['attachments'] as $key => $attachment) {
+                $message['attachments'][$key]['data'] = $attachment['content'];
+                unset($message['attachments'][$key]['content']);
+            }
+            $sparkPostMessage['content']['attachments'] = $message['attachments'];
+        }
+
+        $sparkPostMessage['options'] = [
+            'open_tracking'  => false,
+            'click_tracking' => false,
+        ];
+
+        return $sparkPostMessage;
+    }
+
+    private function getRecipients(array $message, array $metadata, array $mergeVars): array
+    {
         $recipients = [];
+
         foreach ($message['recipients']['to'] as $to) {
-            $recipient = [
-                'address'           => $to,
-                'substitution_data' => [],
-                'metadata'          => [],
-            ];
-
-            if (isset($metadata[$to['email']]['tokens'])) {
-                foreach ($metadata[$to['email']]['tokens'] as $token => $value) {
-                    $recipient['substitution_data'][$mergeVars[$token]] = $value;
-                }
-
-                unset($metadata[$to['email']]['tokens']);
-                $recipient['metadata'] = $metadata[$to['email']];
-            }
-
-            // Sparkpost requires substitution_data which can be byspassed by using MailHelper::setTo() rather than a Lead via MailHelper::setLead()
-            // Without it, Sparkpost returns the error: "field 'substitution_data' is required"
-            // But, it can't be an empty array or Sparkpost will return error: field 'substitution_data' is of type 'json', but needs to be of type 'json_object'
-            if (empty($recipient['substitution_data'])) {
-                $recipient['substitution_data'] = new \stdClass();
-            }
-
-            // Sparkpost doesn't like empty metadata
-            if (empty($recipient['metadata'])) {
-                unset($recipient['metadata']);
-            }
-
+            $recipient    = $this->getRecipient($metadata, $mergeVars, $to);
             $recipients[] = $recipient;
 
             // CC and BCC fields need to be included as a normal TO address with token duplication
@@ -210,6 +174,43 @@ class SparkpostTransport extends AbstractTokenArrayTransport implements Callback
             }
         }
 
+        return $recipients;
+    }
+
+    private function getRecipient(array $metadata, array $mergeVars, array $to): array
+    {
+        $recipient = [
+            'address'           => $to,
+            'substitution_data' => [],
+            'metadata'          => [],
+        ];
+
+        if (isset($metadata[$to['email']]['tokens'])) {
+            foreach ($metadata[$to['email']]['tokens'] as $token => $value) {
+                $recipient['substitution_data'][$mergeVars[$token]] = $value;
+            }
+
+            unset($metadata[$to['email']]['tokens']);
+            $recipient['metadata'] = $metadata[$to['email']];
+        }
+
+        // Sparkpost requires substitution_data which can be byspassed by using MailHelper::setTo() rather than a Lead via MailHelper::setLead()
+        // Without it, Sparkpost returns the error: "field 'substitution_data' is required"
+        // But, it can't be an empty array or Sparkpost will return error: field 'substitution_data' is of type 'json', but needs to be of type 'json_object'
+        if (empty($recipient['substitution_data'])) {
+            $recipient['substitution_data'] = new \stdClass();
+        }
+
+        // Sparkpost doesn't like empty metadata
+        if (empty($recipient['metadata'])) {
+            unset($recipient['metadata']);
+        }
+
+        return $recipient;
+    }
+
+    private function getContent(array $message): array
+    {
         $content = [
             'from'    => (!empty($message['from']['name'])) ? $message['from']['name'].' <'.$message['from']['email']
                 .'>' : $message['from']['email'],
@@ -234,28 +235,7 @@ class SparkpostTransport extends AbstractTokenArrayTransport implements Callback
             $content['reply_to'] = $message['replyTo']['email'];
         }
 
-        $sparkPostMessage = [
-            'content'     => $content,
-            'recipients'  => $recipients,
-            'inline_css'  => $inlineCss,
-            'tags'        => $tags,
-            'campaign_id' => $campaignId,
-        ];
-
-        if (!empty($message['attachments'])) {
-            foreach ($message['attachments'] as $key => $attachment) {
-                $message['attachments'][$key]['data'] = $attachment['content'];
-                unset($message['attachments'][$key]['content']);
-            }
-            $sparkPostMessage['content']['attachments'] = $message['attachments'];
-        }
-
-        $sparkPostMessage['options'] = [
-            'open_tracking'  => false,
-            'click_tracking' => false,
-        ];
-
-        return $sparkPostMessage;
+        return $content;
     }
 
     private function extractCampaignId(array $metadataSet): string
@@ -329,46 +309,6 @@ class SparkpostTransport extends AbstractTokenArrayTransport implements Callback
                     $emailId
                 );
             }
-        }
-    }
-
-    private function processCallbackByHashId($hashId, array $event): void
-    {
-        switch ($event['type']) {
-            case 'policy_rejection':
-            case 'out_of_band':
-            case 'bounce':
-                $this->transportCallback->addFailureByHashId($hashId, $event['raw_reason']);
-                break;
-            case 'spam_complaint':
-                $this->transportCallback->addFailureByHashId($hashId, $event['fbtype'], DoNotContact::UNSUBSCRIBED);
-                break;
-            case 'list_unsubscribe':
-            case 'link_unsubscribe':
-                $this->transportCallback->addFailureByHashId($hashId, 'unsubscribed', DoNotContact::UNSUBSCRIBED);
-                break;
-            default:
-                break;
-        }
-    }
-
-    private function processCallbackByEmailAddress($email, array $event): void
-    {
-        switch ($event['type']) {
-            case 'policy_rejection':
-            case 'out_of_band':
-            case 'bounce':
-                $this->transportCallback->addFailureByAddress($email, $event['raw_reason']);
-                break;
-            case 'spam_complaint':
-                $this->transportCallback->addFailureByAddress($email, $event['fbtype'], DoNotContact::UNSUBSCRIBED);
-                break;
-            case 'list_unsubscribe':
-            case 'link_unsubscribe':
-                $this->transportCallback->addFailureByAddress($email, 'unsubscribed', DoNotContact::UNSUBSCRIBED);
-                break;
-            default:
-                break;
         }
     }
 }
