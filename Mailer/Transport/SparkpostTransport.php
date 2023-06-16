@@ -8,7 +8,7 @@ use Mautic\EmailBundle\Mailer\Message\MauticMessage;
 use Mautic\EmailBundle\Mailer\Transport\AbstractTokenArrayTransport;
 use Mautic\EmailBundle\Model\TransportCallback;
 use Mautic\LeadBundle\Entity\DoNotContact;
-use MauticPlugin\SparkpostBundle\Mailer\Factory\SparkpostFactoryInterface;
+use MauticPlugin\SparkpostBundle\Mailer\Factory\SparkpostClientFactoryInterface;
 use Psr\Log\LoggerInterface;
 use SparkPost\SparkPost;
 use Symfony\Component\Mailer\SentMessage;
@@ -18,29 +18,38 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 class SparkpostTransport extends AbstractTokenArrayTransport
 {
+    public const MAUTIC_SPARKPOST_API_SCHEME = 'mautic+sparkpost+api';
+
     private const SPARK_POST_HOSTS = [
         'us' => 'api.sparkpost.com',
         'eu' => 'api.eu.sparkpost.com',
     ];
 
+    private string $host;
+
     public function __construct(
         private string $apiKey,
-        private string $host,
+        string $region,
         private TranslatorInterface $translator,
         private TransportCallback $transportCallback,
-        private SparkpostFactoryInterface $sparkpostFactory,
+        private SparkpostClientFactoryInterface $sparkpostClientFactory,
         EventDispatcherInterface $dispatcher,
         private LoggerInterface $logger
     ) {
         parent::__construct($dispatcher, $logger);
-        $this->host = self::SPARK_POST_HOSTS[$host] ?? self::SPARK_POST_HOSTS['us'];
+        $this->host = self::SPARK_POST_HOSTS[$region] ?? self::SPARK_POST_HOSTS['us'];
+    }
+
+    public function __toString(): string
+    {
+        return sprintf(self::MAUTIC_SPARKPOST_API_SCHEME.'://%s', $this->host);
     }
 
     protected function doSend(SentMessage $message): void
     {
         try {
             $sparkPostMessage = $this->getSparkPostMessage($message);
-            $sparkPostClient  = $this->sparkpostFactory->create($this->host, $this->apiKey);
+            $sparkPostClient  = $this->sparkpostClientFactory->create($this->host, $this->apiKey);
 
             $this->checkTemplateIsValid($sparkPostClient, $sparkPostMessage);
 
@@ -65,11 +74,6 @@ class SparkpostTransport extends AbstractTokenArrayTransport
     public function getBatchRecipientCount(Email $message, $toBeAdded = 1, $type = 'to'): int
     {
         return count($message->getTo()) + count($message->getCc()) + count($message->getBcc()) + $toBeAdded;
-    }
-
-    public function __toString(): string
-    {
-        return '';
     }
 
     private function getSparkPostMessage(SentMessage $message): array

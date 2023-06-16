@@ -7,7 +7,7 @@ namespace MauticPlugin\SparkpostBundle\Mailer\Factory;
 use Http\Adapter\Guzzle7\Client as GuzzleAdapter;
 use SparkPost\SparkPost;
 
-class SparkpostFactory implements SparkpostFactoryInterface
+class SparkpostClientFactory implements SparkpostClientFactoryInterface
 {
     public function __construct(private GuzzleAdapter $client)
     {
@@ -50,7 +50,7 @@ class SparkpostFactory implements SparkpostFactoryInterface
 
             if (preg_match('~/api/(v\d+)$~i', $path, $matches)) {
                 // Remove /api from the path and extract the version in case different than the Sparkpost SDK default
-                $path               = str_replace($matches[0], '', $path);
+                $path = str_replace($matches[0], '', $path);
                 $options['version'] = $matches[1];
             }
 

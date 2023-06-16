@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Mautic\CoreBundle\DependencyInjection\MauticCoreExtension;
-use MauticPlugin\SparkpostBundle\Mailer\Factory\SparkpostFactory;
+use MauticPlugin\SparkpostBundle\Mailer\Factory\SparkpostTransportFactory;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
 return function (ContainerConfigurator $configurator) {
@@ -13,9 +13,9 @@ return function (ContainerConfigurator $configurator) {
         ->autoconfigure()
         ->public();
 
-    $excludes = [];
+    $excludes = ['Mailer/Transport/SparkpostTransport.php'];
 
-    $services->set('mailer.transport_factory.sparkpost', SparkpostFactory::class)
+    $services->set('mailer.transport_factory.sparkpost', SparkpostTransportFactory::class)
         ->tag('mailer.transport_factory')
         ->autowire();
 
