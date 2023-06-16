@@ -59,10 +59,10 @@ class SparkpostTransport extends AbstractTokenArrayTransport
 
             if ($errorMessage = $this->getErrorMessageFromResponseBody($body)) {
                 $this->processImmediateSendFeedback($sparkPostMessage, $body);
-                throw new \Exception($errorMessage);
+                $this->throwException($errorMessage);
             }
         } catch (\Exception $e) {
-            throw new \Exception($e->getMessage());
+            $this->throwException($e);
         }
     }
 
@@ -81,7 +81,7 @@ class SparkpostTransport extends AbstractTokenArrayTransport
         $email = $message->getOriginalMessage();
 
         if (!$email instanceof MauticMessage) {
-            throw new \Exception('Message must be an instance of '.MauticMessage::class);
+            $this->throwException('Message must be an instance of '.MauticMessage::class);
         }
 
         $this->message        = $email;
@@ -111,7 +111,7 @@ class SparkpostTransport extends AbstractTokenArrayTransport
 
         // Sparkpost requires a subject
         if (empty($message['subject'])) {
-            throw new \Exception($this->translator->trans('mautic.email.subject.notblank', [], 'validators'));
+            $this->throwException($this->translator->trans('mautic.email.subject.notblank', [], 'validators'));
         }
 
         if (isset($message['headers']['X-MC-InlineCSS'])) {
@@ -282,7 +282,7 @@ class SparkpostTransport extends AbstractTokenArrayTransport
         }
 
         if ($errorMessage = $this->getErrorMessageFromResponseBody($body)) {
-            throw new \UnexpectedValueException($errorMessage);
+            $this->throwException($errorMessage);
         }
     }
 
