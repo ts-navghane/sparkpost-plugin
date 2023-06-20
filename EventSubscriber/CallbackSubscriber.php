@@ -25,54 +25,57 @@ class CallbackSubscriber implements EventSubscriberInterface
 
     public function processCallbackRequest(TransportWebhookEvent $event): void
     {
-        $request = $event->getRequest();
-
-        $payload = $request->request->all();
+        $payload = $event->getRequest()->request->all();
 
         foreach ($payload as $msys) {
-            $msys = $msys['msys'];
-            if (isset($msys['message_event'])) {
-                $event = $msys['message_event'];
-            } elseif (isset($msys['unsubscribe_event'])) {
-                $event = $msys['unsubscribe_event'];
-            } else {
+            $msys = $msys['msys'] ?? null;
+            $event = $msys['message_event'] ?? $msys['unsubscribe_event'] ?? null;
+
+            if (!$event) {
                 continue;
             }
 
             if (isset($event['rcpt_type']) && 'to' !== $event['rcpt_type']) {
                 // Ignore cc/bcc
-
                 continue;
             }
 
-            if (
-                'bounce' === $event['type']
-                && !in_array((int) $event['bounce_class'], [10, 30, 50, 51, 52, 53, 54, 90])
-            ) {
-                // Only parse hard bounces - https://support.sparkpost.com/customer/portal/articles/1929896-bounce-classification-codes
+            $type        = $event['type'] ?? null;
+            $bounceClass = $event['bounce_class'] ?? null;
+
+            if ('bounce' === $type && !in_array((int) $bounceClass, [10, 30, 50, 51, 52, 53, 54, 90])) {
+                // Only parse hard bounces
+                // https://support.sparkpost.com/customer/portal/articles/1929896-bounce-classification-codes
                 continue;
             }
 
-            if (isset($event['rcpt_meta']['hashId']) && $hashId = $event['rcpt_meta']['hashId']) {
+            $hashId = $event['rcpt_meta']['hashId'] ?? null;
+
+            if ($hashId) {
                 $this->processCallbackByHashId($hashId, $event);
 
                 continue;
             }
 
-            $this->processCallbackByEmailAddress($event['rcpt_to'], $event);
+            $rcptTo = $event['rcpt_to'] ?? '';
+            $this->processCallbackByEmailAddress($rcptTo, $event);
         }
     }
 
     private function processCallbackByHashId($hashId, array $event): void
     {
-        switch ($event['type']) {
+        $type = $event['type'] ?? null;
+
+        switch ($type) {
             case 'policy_rejection':
             case 'out_of_band':
             case 'bounce':
-                $this->transportCallback->addFailureByHashId($hashId, $event['raw_reason']);
+                $rawReason = $event['raw_reason'] ?? '';
+                $this->transportCallback->addFailureByHashId($hashId, $rawReason);
                 break;
             case 'spam_complaint':
-                $this->transportCallback->addFailureByHashId($hashId, $event['fbtype'], DoNotContact::UNSUBSCRIBED);
+                $fbType = $event['fbtype'] ?? '';
+                $this->transportCallback->addFailureByHashId($hashId, $fbType, DoNotContact::UNSUBSCRIBED);
                 break;
             case 'list_unsubscribe':
             case 'link_unsubscribe':
@@ -85,14 +88,18 @@ class CallbackSubscriber implements EventSubscriberInterface
 
     private function processCallbackByEmailAddress($email, array $event): void
     {
-        switch ($event['type']) {
+        $type = $event['type'] ?? null;
+
+        switch ($type) {
             case 'policy_rejection':
             case 'out_of_band':
             case 'bounce':
-                $this->transportCallback->addFailureByAddress($email, $event['raw_reason']);
+                $rawReason = $event['raw_reason'] ?? '';
+                $this->transportCallback->addFailureByAddress($email, $rawReason);
                 break;
             case 'spam_complaint':
-                $this->transportCallback->addFailureByAddress($email, $event['fbtype'], DoNotContact::UNSUBSCRIBED);
+                $fbType = $event['fbtype'] ?? '';
+                $this->transportCallback->addFailureByAddress($email, $fbType, DoNotContact::UNSUBSCRIBED);
                 break;
             case 'list_unsubscribe':
             case 'link_unsubscribe':

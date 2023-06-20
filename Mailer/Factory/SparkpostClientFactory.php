@@ -7,7 +7,7 @@ namespace MauticPlugin\SparkpostBundle\Mailer\Factory;
 use Http\Adapter\Guzzle7\Client as GuzzleAdapter;
 use SparkPost\SparkPost;
 
-class SparkpostClientFactory implements SparkpostClientFactoryInterface
+class SparkpostClientFactory
 {
     public function __construct(private GuzzleAdapter $client)
     {
@@ -29,9 +29,10 @@ class SparkpostClientFactory implements SparkpostClientFactoryInterface
         $hostInfo = parse_url($host);
 
         if ($hostInfo) {
-            $options = $this->buildOptions($hostInfo, $port);
+            $options = array_merge($options, $this->buildOptions($hostInfo, $port));
         }
 
+        // Must always return a SparkPost host or else Symfony will fail to build the container if host is empty
         return new SparkPost($this->client, $options);
     }
 

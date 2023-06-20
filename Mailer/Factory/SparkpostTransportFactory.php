@@ -19,9 +19,9 @@ class SparkpostTransportFactory extends AbstractTransportFactory
 {
     public function __construct(
         private TranslatorInterface $translator,
+        private SparkpostClientFactory $sparkpostClientFactory,
+        EventDispatcherInterface $eventDispatcher,
         private TransportCallback $transportCallback,
-        private SparkpostClientFactoryInterface $sparkpostClientFactory,
-        private EventDispatcherInterface $eventDispatcher,
         HttpClientInterface $client = null,
         LoggerInterface $logger = null
     ) {
@@ -43,9 +43,10 @@ class SparkpostTransportFactory extends AbstractTransportFactory
                 $this->getPassword($dsn),
                 $dsn->getOption('region'),
                 $this->translator,
-                $this->transportCallback,
                 $this->sparkpostClientFactory,
-                $this->eventDispatcher,
+                $this->transportCallback,
+                $this->client,
+                $this->dispatcher,
                 $this->logger
             );
         }
