@@ -13,7 +13,6 @@ use Mautic\LeadBundle\Entity\DoNotContact;
 use MauticPlugin\SparkpostBundle\Helper\SparkpostResponse;
 use MauticPlugin\SparkpostBundle\Mailer\Factory\SparkpostClientFactory;
 use Psr\EventDispatcher\EventDispatcherInterface;
-use Psr\Http\Message\ResponseInterface as PsrResponseInterface;
 use Psr\Log\LoggerInterface;
 use SparkPost\SparkPost;
 use Symfony\Component\Mailer\Envelope;
@@ -66,14 +65,16 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
             $body              = $sparkpostResponse->getBody();
 
             if ($errorMessage = $this->getErrorMessageFromResponseBody($body)) {
-                $this->processImmediateSendFeedback($payload, $body);
+                /** @var MauticMessage $message */
+                $message = $sentMessage->getOriginalMessage();
+                $this->processImmediateSendFeedback($payload, $body, $message->getMetadata());
                 $this->throwException($errorMessage);
             }
+
+            return $this->handleResponse($sparkpostResponse);
         } catch (\Exception $e) {
             $this->throwException($e->getMessage());
         }
-
-        return $this->handleResponse($sparkpostResponse);
     }
 
     private function getSparkPostPayload(SentMessage $message): array
@@ -136,7 +137,7 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
             'headers'     => $message->getHeaders()->all(),
             'html'        => $message->getHtmlBody(),
             'text'        => $message->getTextBody(),
-            'reply_to'    => (current($message->getReplyTo()))->getAddress(),
+            'reply_to'    => current($message->getReplyTo())->getAddress(),
             'attachments' => $this->buildAttachments($message),
         ];
 
@@ -172,7 +173,7 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
         $recipients = [];
 
         foreach ($message->getTo() as $to) {
-            $recipient = $this->buildRecipient($to, $metadata, $mergeVars);
+            $recipient    = $this->buildRecipient($to, $metadata, $mergeVars);
             $recipients[] = $recipient;
 
             // CC and BCC fields need to be included as a normal TO address with token duplication
@@ -305,16 +306,15 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
         return '';
     }
 
-    private function processImmediateSendFeedback(array $message, array $response): void
+    private function processImmediateSendFeedback(array $message, array $response, array $metadata): void
     {
-        if (!empty($response['errors'][0]['code']) && 1902 == (int)$response['errors'][0]['code']) {
+        if (!empty($response['errors'][0]['code']) && 1902 == (int) $response['errors'][0]['code']) {
             $comments     = $this->getErrorMessageFromResponseBody($response);
             $emailAddress = $message['recipients'][0]['address']['email'];
-            $metadata     = $this->getMetadata();
 
             if (isset($metadata[$emailAddress]['leadId'])) {
                 $emailId = $metadata[$emailAddress]['emailId'] ?? null;
-                $this->transportCallback->addFailureByContactId(
+                $this->callback->addFailureByContactId(
                     $metadata[$emailAddress]['leadId'],
                     $comments,
                     DoNotContact::BOUNCED,
@@ -324,20 +324,17 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
         }
     }
 
-    private function handleResponse(PsrResponseInterface $response): ResponseInterface
+    private function handleResponse(\SparkPost\SparkPostResponse $response): ResponseInterface
     {
         if (200 === $response->getStatusCode()) {
             return new SparkpostResponse(
-                $response->getBody()->getContents(),
+                json_encode($response->getBody()),
                 $response->getStatusCode(),
                 $response->getHeaders()
             );
         }
 
-        $data = json_decode($response->getBody()->getContents(), true);
-        $this->getLogger()->error('SparkpostTransport error response', $data);
-
-        throw new TransportException(json_encode($data['errors']), $response->getStatusCode());
+        $this->throwException('SparkpostTransport Exception, response status code is not 200.');
     }
 
     private function throwException(string $message): void
