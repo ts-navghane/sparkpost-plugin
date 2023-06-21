@@ -22,6 +22,7 @@ use Symfony\Component\Mailer\Transport\AbstractApiTransport;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Mime\Header\ParameterizedHeader;
+use Symfony\Component\Mime\Header\UnstructuredHeader;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -33,6 +34,20 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
     public const MAUTIC_SPARKPOST_API_SCHEME = 'mautic+sparkpost+api';
 
     private const SPARK_POST_HOSTS = ['us' => 'api.sparkpost.com', 'eu' => 'api.eu.sparkpost.com'];
+
+    private const STD_HEADER_KEYS = [
+        'MIME-Version',
+        'received',
+        'dkim-signature',
+        'Content-Type',
+        'Content-Transfer-Encoding',
+        'To',
+        'From',
+        'Subject',
+        'Reply-To',
+        'CC',
+        'BCC',
+    ];
 
     public function __construct(
         private string $apiKey,
@@ -129,23 +144,31 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
     {
         $fromAddress = current($message->getFrom());
 
-        $content = [
+        return [
             'from'        => !empty($fromAddress->getName())
                 ? $fromAddress->getName().' <'.$fromAddress->getAddress().'>'
                 : $fromAddress->getAddress(),
             'subject'     => $message->getSubject(),
-            'headers'     => $message->getHeaders()->all(),
+            'headers'     => $this->buildHeaders($message),
             'html'        => $message->getHtmlBody(),
             'text'        => $message->getTextBody(),
             'reply_to'    => current($message->getReplyTo())->getAddress(),
             'attachments' => $this->buildAttachments($message),
         ];
+    }
 
-        if (!empty($headers = $message->getHeaders()->all())) {
-            $content['headers'] = array_map('strval', (array) $headers);
+    private function buildHeaders(MauticMessage $message): array
+    {
+        $result  = [];
+        $headers = $message->getHeaders()->all();
+
+        foreach ($headers as $header) {
+            if ($header instanceof UnstructuredHeader && !in_array($header->getName(), self::STD_HEADER_KEYS)) {
+                $result[$header->getName()] = $header->getBody();
+            }
         }
 
-        return $content;
+        return $result;
     }
 
     private function buildAttachments(MauticMessage $message): array
