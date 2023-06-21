@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MauticPlugin\SparkpostBundle\Helper;
 
-use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 
 class SparkpostResponse implements ResponseInterface

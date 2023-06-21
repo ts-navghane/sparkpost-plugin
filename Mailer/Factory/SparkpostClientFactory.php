@@ -51,7 +51,7 @@ class SparkpostClientFactory
 
             if (preg_match('~/api/(v\d+)$~i', $path, $matches)) {
                 // Remove /api from the path and extract the version in case different than the Sparkpost SDK default
-                $path = str_replace($matches[0], '', $path);
+                $path               = str_replace($matches[0], '', $path);
                 $options['version'] = $matches[1];
             }
 

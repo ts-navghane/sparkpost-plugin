@@ -28,7 +28,7 @@ class CallbackSubscriber implements EventSubscriberInterface
         $payload = $event->getRequest()->request->all();
 
         foreach ($payload as $msys) {
-            $msys = $msys['msys'] ?? null;
+            $msys  = $msys['msys'] ?? null;
             $event = $msys['message_event'] ?? $msys['unsubscribe_event'] ?? null;
 
             if (!$event) {
