@@ -13,7 +13,10 @@ return function (ContainerConfigurator $configurator) {
         ->autoconfigure()
         ->public();
 
-    $excludes = ['Mailer/Transport/SparkpostTransport.php'];
+    $excludes = [
+        'Helper/SparkpostResponse.php',
+        'Mailer/Transport/SparkpostTransport.php',
+    ];
 
     $services->set('mailer.transport_factory.sparkpost', SparkpostTransportFactory::class)
         ->tag('mailer.transport_factory')
