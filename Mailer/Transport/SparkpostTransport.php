@@ -149,7 +149,7 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
                 ? $fromAddress->getName().' <'.$fromAddress->getAddress().'>'
                 : $fromAddress->getAddress(),
             'subject'     => $message->getSubject(),
-            'headers'     => $this->buildHeaders($message),
+            'headers'     => $this->buildHeaders($message) ?: new \stdClass(),
             'html'        => $message->getHtmlBody(),
             'text'        => $message->getTextBody(),
             'reply_to'    => current($message->getReplyTo())->getAddress(),
