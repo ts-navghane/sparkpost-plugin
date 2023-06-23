@@ -1,5 +1,5 @@
 {
-    "name": "mautic/sparkpost-plugin",
+    "name": "ts-navghane/sparkpost-plugin",
     "description": "Sparkpost Mailer Plugin for Mautic",
     "type": "mautic-plugin",
     "license": "GPL-3.0-or-later",
