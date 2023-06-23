@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MauticPlugin\SparkpostBundle\Tests\Unit\Mailer\Factory;
 
-use Http\Adapter\Guzzle7\Client;
+use Http\Client\HttpClient;
 use MauticPlugin\SparkpostBundle\Mailer\Factory\SparkpostClientFactory;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\TestCase;
@@ -14,7 +14,8 @@ class SparkpostClientFactoryTest extends TestCase
 {
     protected function setUp(): void
     {
-        $this->sparkpostClientFactory = new SparkpostClientFactory(new Client(new \GuzzleHttp\Client()));
+        $httpClientMock               = $this->createMock(HttpClient::class);
+        $this->sparkpostClientFactory = new SparkpostClientFactory($httpClientMock);
     }
 
     public function testCreateSparkpostClient(): void

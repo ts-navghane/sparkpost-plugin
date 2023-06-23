@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace MauticPlugin\SparkpostBundle\Mailer\Factory;
 
-use Http\Adapter\Guzzle7\Client as GuzzleAdapter;
+use Http\Client\HttpClient;
 use SparkPost\SparkPost;
 
 class SparkpostClientFactory
 {
-    public function __construct(private GuzzleAdapter $client)
+    public function __construct(private HttpClient $client)
     {
     }
 
