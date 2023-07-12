@@ -38,11 +38,11 @@ class SparkpostResponse implements ResponseInterface
 
     public function cancel(): void
     {
-        // TODO: Implement cancel() method.
+        // TODO: Implement cancel() method. This should be finished before the prod release.
     }
 
     public function getInfo(string $type = null)
     {
-        // TODO: Implement getInfo() method.
+        // TODO: Implement getInfo() method. This should be finished before the prod release.
     }
 }

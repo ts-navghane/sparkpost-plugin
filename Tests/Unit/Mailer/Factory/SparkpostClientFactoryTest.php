@@ -12,6 +12,8 @@ use SparkPost\SparkPost;
 
 class SparkpostClientFactoryTest extends TestCase
 {
+    private SparkpostClientFactory $sparkpostClientFactory;
+
     protected function setUp(): void
     {
         $httpClientMock               = $this->createMock(HttpClient::class);

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MauticPlugin\SparkpostBundle\Mailer\Factory;
 
 use Http\Client\HttpClient;
-use SparkPost\SparkPost;
+use SparkPost\SparkPost; // Do you think we could do this without the Sparkpost SDK? Similar to https://github.com/gam6itko/sparkpost-mailer/blob/master/src/Transport/SparkPostApiTransport.php#L60? It would allow users to install this without Composer.
 
 class SparkpostClientFactory
 {

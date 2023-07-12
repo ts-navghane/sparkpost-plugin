@@ -28,17 +28,17 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 class SparkpostTransportTest extends TestCase
 {
-    private TranslatorInterface|MockObject $translatorMock;
+    private TranslatorInterface&MockObject $translatorMock;
 
-    private SparkpostClientFactory|MockObject $sparkpostClientFactoryMock;
+    private SparkpostClientFactory&MockObject $sparkpostClientFactoryMock;
 
-    private TransportCallback|MockObject $transportCallbackMock;
+    private TransportCallback&MockObject $transportCallbackMock;
 
-    private HttpClientInterface|MockObject $httpClientMock;
+    private HttpClientInterface&MockObject $httpClientMock;
 
-    private EventDispatcherInterface|MockObject $eventDispatcherMock;
+    private EventDispatcherInterface&MockObject $eventDispatcherMock;
 
-    private LoggerInterface|MockObject $loggerMock;
+    private LoggerInterface&MockObject $loggerMock;
 
     private SparkpostTransport $transport;
 
