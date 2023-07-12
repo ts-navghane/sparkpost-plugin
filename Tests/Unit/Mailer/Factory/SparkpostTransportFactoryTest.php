@@ -19,6 +19,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 class SparkpostTransportFactoryTest extends TestCase
 {
+    private SparkpostTransportFactory $sparkpostTransportFactory;
+
     protected function setUp(): void
     {
         $translatorMock             = $this->createMock(TranslatorInterface::class);
