@@ -13,9 +13,8 @@
     },
     "minimum-stability": "dev",
     "require": {
-        "php": ">=7.4.0",
-        "mautic/core-lib": "^4.0",
-        "sparkpost/sparkpost": "^2.3"
+        "php": ">=8.0.0",
+        "mautic/core-lib": "^5.0"
     },
     "scripts": {
         "test": [

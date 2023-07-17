@@ -10,12 +10,11 @@ use Mautic\EmailBundle\Mailer\Transport\TokenTransportInterface;
 use Mautic\EmailBundle\Mailer\Transport\TokenTransportTrait;
 use Mautic\EmailBundle\Model\TransportCallback;
 use Mautic\LeadBundle\Entity\DoNotContact;
-use MauticPlugin\SparkpostBundle\Helper\SparkpostResponse;
-use MauticPlugin\SparkpostBundle\Mailer\Factory\SparkpostClientFactory;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
-use SparkPost\SparkPost;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Mailer\Envelope;
+use Symfony\Component\Mailer\Exception\HttpTransportException;
 use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Mailer\SentMessage;
 use Symfony\Component\Mailer\Transport\AbstractApiTransport;
@@ -23,6 +22,11 @@ use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Mime\Header\ParameterizedHeader;
 use Symfony\Component\Mime\Header\UnstructuredHeader;
+use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -53,7 +57,6 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
         private string $apiKey,
         private string $region,
         private TranslatorInterface $translator,
-        private SparkpostClientFactory $factory,
         private TransportCallback $callback,
         HttpClientInterface $client = null,
         EventDispatcherInterface $dispatcher = null,
@@ -68,25 +71,29 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
         return sprintf(self::MAUTIC_SPARKPOST_API_SCHEME.'://%s', $this->host);
     }
 
+    /**
+     * @throws ClientExceptionInterface
+     * @throws DecodingExceptionInterface
+     * @throws RedirectionExceptionInterface
+     * @throws ServerExceptionInterface
+     * @throws TransportExceptionInterface
+     */
     protected function doSendApi(SentMessage $sentMessage, Email $email, Envelope $envelope): ResponseInterface
     {
         try {
-            $payload         = $this->getSparkPostPayload($sentMessage);
-            $sparkPostClient = $this->factory->create($this->host, $this->apiKey);
-            $this->checkTemplateIsValid($sparkPostClient, $payload);
+            $payload = $this->getSparkPostPayload($sentMessage);
+            $this->checkTemplateIsValid($payload);
+            $response = $this->getSparkPostResponse('transmissions', $payload);
+            $this->handleError($response);
 
-            $promise           = $sparkPostClient->transmissions->post($payload);
-            $sparkpostResponse = $promise->wait();
-            $body              = $sparkpostResponse->getBody();
-
-            if ($errorMessage = $this->getErrorMessageFromResponseBody($body)) {
+            if ($errorMessage = $this->getErrorMessageFromResponseBody($response->toArray())) {
                 /** @var MauticMessage $message */
                 $message = $sentMessage->getOriginalMessage();
-                $this->processImmediateSendFeedback($payload, $body, $message->getMetadata());
+                $this->processImmediateSendFeedback($payload, $response->toArray(), $message->getMetadata());
                 $this->throwException($errorMessage);
             }
 
-            return $this->handleResponse($sparkpostResponse);
+            return $response;
         } catch (\Exception $e) {
             $this->throwException($e->getMessage());
         }
@@ -138,6 +145,11 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
                 'click_tracking' => false,
             ],
         ];
+    }
+
+    private function throwException(string $message): void
+    {
+        throw new TransportException($message);
     }
 
     private function buildContent(MauticMessage $message): array
@@ -288,20 +300,24 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
         return $campaignId;
     }
 
-    private function checkTemplateIsValid(Sparkpost $sparkPostClient, array $sparkPostMessage): void
+    /**
+     * @throws ClientExceptionInterface
+     * @throws RedirectionExceptionInterface
+     * @throws ServerExceptionInterface
+     * @throws TransportExceptionInterface
+     */
+    private function checkTemplateIsValid(array $payload): void
     {
         // Take substitution_data from the first recipient.
         if (
-            empty($sparkPostMessage['substitution_data'])
-            && isset($sparkPostMessage['recipients'][0]['substitution_data'])
+            empty($payload['substitution_data'])
+            && isset($payload['recipients'][0]['substitution_data'])
         ) {
-            $sparkPostMessage['substitution_data'] = $sparkPostMessage['recipients'][0]['substitution_data'];
-            unset($sparkPostMessage['recipients']);
+            $payload['substitution_data'] = $payload['recipients'][0]['substitution_data'];
+            unset($payload['recipients']);
         }
 
-        $promise  = $sparkPostClient->request('POST', 'utils/content-previewer', $sparkPostMessage);
-        $response = $promise->wait();
-        $body     = $response->getBody();
+        $response = $this->getSparkPostResponse('utils/content-previewer', $payload);
 
         if (403 === $response->getStatusCode()) {
             // We cannot fail as it would be a BC break. Throw a warning and continue.
@@ -309,29 +325,58 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
                 'The permission "Templates: Preview" is not enabled. '.
                 'Enable it to let Mautic check email template validity before send.'
             );
+        }
 
+        $this->handleError($response);
+    }
+
+    /**
+     * @throws TransportExceptionInterface
+     */
+    private function getSparkPostResponse(
+        string $endpoint,
+        array $payload,
+        string $method = Request::METHOD_POST
+    ): ResponseInterface {
+        return $this->client->request(
+            $method,
+            sprintf('https://%1$s/api/v1/%2$s/', $this->host, $endpoint),
+            [
+                'headers' => [
+                    'Authorization' => $this->apiKey,
+                    'Content-Type'  => 'application/json',
+                ],
+                'json'    => $payload,
+            ]
+        );
+    }
+
+    /**
+     * @throws ClientExceptionInterface
+     * @throws RedirectionExceptionInterface
+     * @throws ServerExceptionInterface
+     * @throws TransportExceptionInterface
+     */
+    private function handleError(ResponseInterface $response): void
+    {
+        if (200 === $response->getStatusCode()) {
             return;
         }
 
-        if ($errorMessage = $this->getErrorMessageFromResponseBody($body)) {
-            $this->throwException($errorMessage);
-        }
+        $data = json_decode($response->getContent(false), true);
+        $this->getLogger()->error('SparkPostApiTransport error response', $data);
+
+        throw new HttpTransportException(json_encode($data['errors']), $response, $response->getStatusCode());
     }
 
     private function getErrorMessageFromResponseBody(array $response): string
     {
-        if (isset($response['errors'][0]['description'])) {
-            return $response['errors'][0]['description'];
-        } elseif (isset($response['errors'][0]['message'])) {
-            return $response['errors'][0]['message'];
-        }
-
-        return '';
+        return $response['errors'][0]['description'] ?? $response['errors'][0]['message'] ?? '';
     }
 
     private function processImmediateSendFeedback(array $message, array $response, array $metadata): void
     {
-        if (!empty($response['errors'][0]['code']) && 1902 == (int) $response['errors'][0]['code']) {
+        if (!empty($response['errors'][0]['code']) && 1902 === (int) $response['errors'][0]['code']) {
             $comments     = $this->getErrorMessageFromResponseBody($response);
             $emailAddress = $message['recipients'][0]['address']['email'];
 
@@ -345,24 +390,6 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
                 );
             }
         }
-    }
-
-    private function handleResponse(\SparkPost\SparkPostResponse $response): ResponseInterface
-    {
-        if (200 === $response->getStatusCode()) {
-            return new SparkpostResponse(
-                json_encode($response->getBody()),
-                $response->getStatusCode(),
-                $response->getHeaders()
-            );
-        }
-
-        $this->throwException('SparkpostTransport Exception, response status code is not 200.');
-    }
-
-    private function throwException(string $message): void
-    {
-        throw new TransportException($message);
     }
 
     public function getMaxBatchLimit(): int
