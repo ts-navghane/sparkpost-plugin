@@ -14,7 +14,6 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Mailer\Exception\UnsupportedSchemeException;
 use Symfony\Component\Mailer\Transport\Dsn;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Contracts\Translation\TranslatorInterface;
 
 class SparkpostTransportFactoryTest extends TestCase
 {
@@ -22,16 +21,14 @@ class SparkpostTransportFactoryTest extends TestCase
 
     protected function setUp(): void
     {
-        $translatorMock             = $this->createMock(TranslatorInterface::class);
-        $eventDispatcherMock        = $this->createMock(EventDispatcherInterface::class);
-        $transportCallbackMock      = $this->createMock(TransportCallback::class);
-        $httpClientMock             = $this->createMock(HttpClientInterface::class);
-        $loggerMock                 = $this->createMock(LoggerInterface::class);
+        $eventDispatcherMock   = $this->createMock(EventDispatcherInterface::class);
+        $transportCallbackMock = $this->createMock(TransportCallback::class);
+        $httpClientMock        = $this->createMock(HttpClientInterface::class);
+        $loggerMock            = $this->createMock(LoggerInterface::class);
 
         $this->sparkpostTransportFactory = new SparkpostTransportFactory(
-            $translatorMock,
-            $eventDispatcherMock,
             $transportCallbackMock,
+            $eventDispatcherMock,
             $httpClientMock,
             $loggerMock
         );
