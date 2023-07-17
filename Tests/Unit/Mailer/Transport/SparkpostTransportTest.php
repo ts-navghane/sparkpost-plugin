@@ -53,6 +53,7 @@ class SparkpostTransportTest extends TestCase
         $sentMessageMock   = $this->createMock(SentMessage::class);
         $mauticMessageMock = $this->createMock(MauticMessage::class);
         $responseMock      = $this->createMock(ResponseInterface::class);
+        $clientMock        = $this->createMock(HttpClientInterface::class);
 
         $sentMessageMock->method('getOriginalMessage')
             ->willReturn($mauticMessageMock);
@@ -72,7 +73,7 @@ class SparkpostTransportTest extends TestCase
         $responseMock->method('getStatusCode')
             ->willReturn(200);
 
-        $this->httpClientMock->method('request')
+        $clientMock->method('request')
             ->willReturn($responseMock);
 
         $response = $this->invokeInaccessibleMethod(
