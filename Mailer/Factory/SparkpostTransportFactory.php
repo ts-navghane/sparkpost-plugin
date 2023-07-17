@@ -17,8 +17,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 class SparkpostTransportFactory extends AbstractTransportFactory
 {
     public function __construct(
-        EventDispatcherInterface $eventDispatcher,
         private TransportCallback $transportCallback,
+        EventDispatcherInterface $eventDispatcher,
         HttpClientInterface $client = null,
         LoggerInterface $logger = null
     ) {

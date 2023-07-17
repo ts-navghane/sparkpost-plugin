@@ -66,7 +66,7 @@ class CallbackSubscriber implements EventSubscriberInterface
     }
 
     /**
-     * @param string $hashId
+     * @param string       $hashId
      * @param array<mixed> $event
      */
     private function processCallbackByHashId($hashId, array $event): void
@@ -94,7 +94,7 @@ class CallbackSubscriber implements EventSubscriberInterface
     }
 
     /**
-     * @param string $email
+     * @param string       $email
      * @param array<mixed> $event
      */
     private function processCallbackByEmailAddress($email, array $event): void

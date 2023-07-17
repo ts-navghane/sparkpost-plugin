@@ -209,6 +209,9 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
     }
 
     /**
+     * @param array<mixed> $metadata
+     * @param array<mixed> $mergeVars
+     *
      * @return array<mixed>
      */
     private function buildRecipients(MauticMessage $message, array $metadata, array $mergeVars): array
@@ -235,6 +238,9 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
     }
 
     /**
+     * @param array<mixed> $metadata
+     * @param array<mixed> $mergeVars
+     *
      * @return array<mixed>
      */
     private function buildRecipient(Address $to, array $metadata, array $mergeVars): array
@@ -277,6 +283,8 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
     }
 
     /**
+     * @param array<mixed> $recipient
+     *
      * @return array<mixed>
      */
     private function buildCopyRecipient(Address $to, Address $copy, array $recipient): array
@@ -293,6 +301,10 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
         return $copyRecipient;
     }
 
+    /**
+     * @param array<mixed> $metadata
+     * @param array<mixed> $metadataSet
+     */
     private function getCampaignId(array $metadata, array $metadataSet): string
     {
         $campaignId = '';
@@ -315,6 +327,8 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
     }
 
     /**
+     * @param array<mixed> $payload
+     *
      * @throws ClientExceptionInterface
      * @throws RedirectionExceptionInterface
      * @throws ServerExceptionInterface
@@ -345,6 +359,8 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
     }
 
     /**
+     * @param array<mixed> $payload
+     *
      * @throws TransportExceptionInterface
      */
     private function getSparkpostResponse(
@@ -383,11 +399,19 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
         throw new HttpTransportException(json_encode($data['errors']), $response, $response->getStatusCode());
     }
 
+    /**
+     * @param array<mixed> $response
+     */
     private function getErrorMessageFromResponseBody(array $response): string
     {
         return $response['errors'][0]['description'] ?? $response['errors'][0]['message'] ?? '';
     }
 
+    /**
+     * @param array<mixed> $message
+     * @param array<mixed> $response
+     * @param array<mixed> $metadata
+     */
     private function processImmediateSendFeedback(array $message, array $response, array $metadata): void
     {
         if (!empty($response['errors'][0]['code']) && 1902 === (int) $response['errors'][0]['code']) {
