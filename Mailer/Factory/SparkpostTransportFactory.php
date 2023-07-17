@@ -13,12 +13,10 @@ use Symfony\Component\Mailer\Transport\AbstractTransportFactory;
 use Symfony\Component\Mailer\Transport\Dsn;
 use Symfony\Component\Mailer\Transport\TransportInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Contracts\Translation\TranslatorInterface;
 
 class SparkpostTransportFactory extends AbstractTransportFactory
 {
     public function __construct(
-        private TranslatorInterface $translator,
         EventDispatcherInterface $eventDispatcher,
         private TransportCallback $transportCallback,
         HttpClientInterface $client = null,
@@ -41,7 +39,6 @@ class SparkpostTransportFactory extends AbstractTransportFactory
             return new SparkpostTransport(
                 $this->getPassword($dsn),
                 $dsn->getOption('region'),
-                $this->translator,
                 $this->transportCallback,
                 $this->client,
                 $this->dispatcher,

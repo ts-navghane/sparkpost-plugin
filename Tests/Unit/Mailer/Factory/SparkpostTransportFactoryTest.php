@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace MauticPlugin\SparkpostBundle\Tests\Unit\Mailer\Factory;
 
 use Mautic\EmailBundle\Model\TransportCallback;
-use MauticPlugin\SparkpostBundle\Mailer\Factory\SparkpostClientFactory;
 use MauticPlugin\SparkpostBundle\Mailer\Factory\SparkpostTransportFactory;
 use MauticPlugin\SparkpostBundle\Mailer\Transport\SparkpostTransport;
 use PHPUnit\Framework\Assert;
@@ -19,10 +18,11 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 class SparkpostTransportFactoryTest extends TestCase
 {
+    private SparkpostTransportFactory $sparkpostTransportFactory;
+
     protected function setUp(): void
     {
         $translatorMock             = $this->createMock(TranslatorInterface::class);
-        $sparkpostClientFactoryMock = $this->createMock(SparkpostClientFactory::class);
         $eventDispatcherMock        = $this->createMock(EventDispatcherInterface::class);
         $transportCallbackMock      = $this->createMock(TransportCallback::class);
         $httpClientMock             = $this->createMock(HttpClientInterface::class);
@@ -30,7 +30,6 @@ class SparkpostTransportFactoryTest extends TestCase
 
         $this->sparkpostTransportFactory = new SparkpostTransportFactory(
             $translatorMock,
-            $sparkpostClientFactoryMock,
             $eventDispatcherMock,
             $transportCallbackMock,
             $httpClientMock,
@@ -56,7 +55,7 @@ class SparkpostTransportFactoryTest extends TestCase
     {
         $this->expectException(UnsupportedSchemeException::class);
         $dsn = new Dsn(
-            'mautic+sparkpost',
+            'some+unsupported+scheme',
             'host',
             null,
             'sparkpost_api_key',

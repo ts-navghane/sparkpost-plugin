@@ -29,7 +29,6 @@ use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
-use Symfony\Contracts\Translation\TranslatorInterface;
 
 class SparkpostTransport extends AbstractApiTransport implements TokenTransportInterface
 {
@@ -55,8 +54,7 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
 
     public function __construct(
         private string $apiKey,
-        private string $region,
-        private TranslatorInterface $translator,
+        string $region,
         private TransportCallback $callback,
         HttpClientInterface $client = null,
         EventDispatcherInterface $dispatcher = null,
@@ -81,30 +79,33 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
     protected function doSendApi(SentMessage $sentMessage, Email $email, Envelope $envelope): ResponseInterface
     {
         try {
-            $payload = $this->getSparkPostPayload($sentMessage);
+            $payload = $this->getSparkpostPayload($sentMessage);
             $this->checkTemplateIsValid($payload);
-            $response = $this->getSparkPostResponse('transmissions', $payload);
+            $response = $this->getSparkpostResponse('transmissions', $payload);
             $this->handleError($response);
 
             if ($errorMessage = $this->getErrorMessageFromResponseBody($response->toArray())) {
                 /** @var MauticMessage $message */
                 $message = $sentMessage->getOriginalMessage();
                 $this->processImmediateSendFeedback($payload, $response->toArray(), $message->getMetadata());
-                $this->throwException($errorMessage);
+                throw new TransportException($errorMessage);
             }
 
             return $response;
         } catch (\Exception $e) {
-            $this->throwException($e->getMessage());
+            throw new TransportException($e->getMessage());
         }
     }
 
-    private function getSparkPostPayload(SentMessage $message): array
+    /**
+     * @return array<mixed>
+     */
+    private function getSparkpostPayload(SentMessage $message): array
     {
         $email = $message->getOriginalMessage();
 
         if (!$email instanceof MauticMessage) {
-            $this->throwException('Message must be an instance of '.MauticMessage::class);
+            throw new TransportException('Message must be an instance of '.MauticMessage::class);
         }
 
         $metadata    = $email->getMetadata();
@@ -147,11 +148,9 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
         ];
     }
 
-    private function throwException(string $message): void
-    {
-        throw new TransportException($message);
-    }
-
+    /**
+     * @return array<mixed>
+     */
     private function buildContent(MauticMessage $message): array
     {
         $fromAddress = current($message->getFrom());
@@ -169,6 +168,9 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
         ];
     }
 
+    /**
+     * @return array<mixed>
+     */
     private function buildHeaders(MauticMessage $message): array
     {
         $result  = [];
@@ -183,6 +185,9 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
         return $result;
     }
 
+    /**
+     * @return array<mixed>
+     */
     private function buildAttachments(MauticMessage $message): array
     {
         $result = [];
@@ -203,6 +208,9 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
         return $result;
     }
 
+    /**
+     * @return array<mixed>
+     */
     private function buildRecipients(MauticMessage $message, array $metadata, array $mergeVars): array
     {
         $recipients = [];
@@ -226,6 +234,9 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
         return $recipients;
     }
 
+    /**
+     * @return array<mixed>
+     */
     private function buildRecipient(Address $to, array $metadata, array $mergeVars): array
     {
         $recipient = [
@@ -265,6 +276,9 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
         return $recipient;
     }
 
+    /**
+     * @return array<mixed>
+     */
     private function buildCopyRecipient(Address $to, Address $copy, array $recipient): array
     {
         $copyRecipient = [
@@ -317,7 +331,7 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
             unset($payload['recipients']);
         }
 
-        $response = $this->getSparkPostResponse('utils/content-previewer', $payload);
+        $response = $this->getSparkpostResponse('utils/content-previewer', $payload);
 
         if (403 === $response->getStatusCode()) {
             // We cannot fail as it would be a BC break. Throw a warning and continue.
@@ -333,7 +347,7 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
     /**
      * @throws TransportExceptionInterface
      */
-    private function getSparkPostResponse(
+    private function getSparkpostResponse(
         string $endpoint,
         array $payload,
         string $method = Request::METHOD_POST
@@ -364,7 +378,7 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
         }
 
         $data = json_decode($response->getContent(false), true);
-        $this->getLogger()->error('SparkPostApiTransport error response', $data);
+        $this->getLogger()->error('SparkpostApiTransport error response', $data);
 
         throw new HttpTransportException(json_encode($data['errors']), $response, $response->getStatusCode());
     }
