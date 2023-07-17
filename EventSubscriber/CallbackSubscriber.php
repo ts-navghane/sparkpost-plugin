@@ -16,6 +16,9 @@ class CallbackSubscriber implements EventSubscriberInterface
     {
     }
 
+    /**
+     * @return array<string, string>
+     */
     public static function getSubscribedEvents(): array
     {
         return [
@@ -62,6 +65,10 @@ class CallbackSubscriber implements EventSubscriberInterface
         }
     }
 
+    /**
+     * @param string $hashId
+     * @param array<mixed> $event
+     */
     private function processCallbackByHashId($hashId, array $event): void
     {
         $type = $event['type'] ?? null;
@@ -86,6 +93,10 @@ class CallbackSubscriber implements EventSubscriberInterface
         }
     }
 
+    /**
+     * @param string $email
+     * @param array<mixed> $event
+     */
     private function processCallbackByEmailAddress($email, array $event): void
     {
         $type = $event['type'] ?? null;
