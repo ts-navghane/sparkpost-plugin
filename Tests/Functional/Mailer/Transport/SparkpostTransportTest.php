@@ -24,7 +24,7 @@ class SparkpostTransportTest extends MauticMysqlTestCase
 
     public function testEmailSendToContactSync(): void
     {
-        $expectedRequests = [
+        $expectedResponses = [
             function ($method, $url, $options): MockResponse {
                 Assert::assertEquals(Request::METHOD_POST, $method);
                 Assert::assertEquals('https://api.sparkpost.com/api/v1/utils/content-previewer/', $url);
@@ -43,7 +43,7 @@ class SparkpostTransportTest extends MauticMysqlTestCase
 
         $mockHttpClient = self::getContainer()->get('http_client');
         Assert::assertInstanceOf(MockHttpClient::class, $mockHttpClient); // @phpstan-ignore-line
-        $mockHttpClient->setResponseFactory($expectedRequests);
+        $mockHttpClient->setResponseFactory($expectedResponses);
 
         $contact = $this->createContact('contact@an.email');
         $this->em->flush();
