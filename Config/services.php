@@ -6,7 +6,9 @@ use Mautic\CoreBundle\DependencyInjection\MauticCoreExtension;
 use MauticPlugin\SparkpostBundle\Mailer\Factory\SparkpostTransportFactory;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
-return function (ContainerConfigurator $configurator) {
+use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
+
+return static function (ContainerConfigurator $configurator) {
     $services = $configurator->services()
         ->defaults()
         ->autowire()
@@ -19,8 +21,13 @@ return function (ContainerConfigurator $configurator) {
     ];
 
     $services->set('mailer.transport_factory.sparkpost', SparkpostTransportFactory::class)
-        ->tag('mailer.transport_factory')
-        ->autowire();
+        ->args([
+            service('mautic.email.model.transport_callback'),
+            service('event_dispatcher'),
+            service('http_client'),
+            service('logger'),
+        ])
+        ->tag('mailer.transport_factory');
 
     $services->load('MauticPlugin\\SparkpostBundle\\', '../')
         ->exclude('../{'.implode(',', array_merge(MauticCoreExtension::DEFAULT_EXCLUDES, $excludes)).'}');
