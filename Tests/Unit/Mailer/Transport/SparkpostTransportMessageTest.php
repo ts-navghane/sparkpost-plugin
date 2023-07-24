@@ -7,6 +7,7 @@ namespace MauticPlugin\SparkpostBundle\Tests\Unit\Mailer\Transport;
 use Mautic\EmailBundle\Mailer\Message\MauticMessage;
 use Mautic\EmailBundle\Model\TransportCallback;
 use MauticPlugin\SparkpostBundle\Mailer\Transport\SparkpostTransport;
+use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\TestCase;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
@@ -59,7 +60,6 @@ class SparkpostTransportMessageTest extends TestCase
             ['tokens' => ['{formfield=first_name}' => '1'], 'emailId' => $emailId, 'emailName' => $internalEmailName] // @phpstan-ignore-line
         );
 
-        /** @phpstan-ignore-next-line */
         $message->addMetadata('to2@xx.xx', ['tokens' => ['{formfield=first_name}' => '2']]); // @phpstan-ignore-line
 
         $sentMessageMock = $this->createMock(SentMessage::class);
@@ -67,11 +67,11 @@ class SparkpostTransportMessageTest extends TestCase
             ->willReturn($message);
 
         $payload = $this->invokeInaccessibleMethod($sparkpost, 'getSparkpostPayload', [$sentMessageMock]);
-        $this->assertSame(sprintf('%s:%s', $emailId, $expectedInternalEmailName), $payload['campaign_id']);
-        $this->assertEquals('from@xx.xx', $payload['content']['from']);
-        $this->assertEquals('Test subject', $payload['content']['subject']);
-        $this->assertEquals('First Name: {{{ FORMFIELDFIRSTNAME }}}', $payload['content']['html']);
-        $this->assertCount(10, $payload['recipients']);
+        Assert::assertEquals(sprintf('%s:%s', $emailId, $expectedInternalEmailName), $payload['campaign_id']);
+        Assert::assertEquals('from@xx.xx', $payload['content']['from']);
+        Assert::assertEquals('Test subject', $payload['content']['subject']);
+        Assert::assertEquals('First Name: {{{ FORMFIELDFIRSTNAME }}}', $payload['content']['html']);
+        Assert::assertCount(10, $payload['recipients']);
 
         // CC and BCC fields has to be included as normal recipient with same data as TO fields has
         $recipients = [
@@ -171,7 +171,7 @@ class SparkpostTransportMessageTest extends TestCase
             ],
         ];
 
-        $this->assertEquals($recipients, $payload['recipients']);
+        Assert::assertEquals($recipients, $payload['recipients']);
     }
 
     /**
