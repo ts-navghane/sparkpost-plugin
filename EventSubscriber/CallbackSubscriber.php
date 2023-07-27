@@ -4,16 +4,22 @@ declare(strict_types=1);
 
 namespace MauticPlugin\SparkpostBundle\EventSubscriber;
 
+use Mautic\CoreBundle\Helper\CoreParametersHelper;
 use Mautic\EmailBundle\EmailEvents;
 use Mautic\EmailBundle\Event\TransportWebhookEvent;
 use Mautic\EmailBundle\Model\TransportCallback;
 use Mautic\LeadBundle\Entity\DoNotContact;
+use MauticPlugin\SparkpostBundle\Mailer\Transport\SparkpostTransport;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Mailer\Transport\Dsn;
 
 class CallbackSubscriber implements EventSubscriberInterface
 {
-    public function __construct(private TransportCallback $transportCallback)
-    {
+    public function __construct(
+        private TransportCallback $transportCallback,
+        private CoreParametersHelper $coreParametersHelper
+    ) {
     }
 
     /**
@@ -28,23 +34,29 @@ class CallbackSubscriber implements EventSubscriberInterface
 
     public function processCallbackRequest(TransportWebhookEvent $event): void
     {
+        $dsn = Dsn::fromString($this->coreParametersHelper->get('mailer_dsn'));
+
+        if (SparkpostTransport::MAUTIC_SPARKPOST_API_SCHEME !== $dsn->getScheme()) {
+            return;
+        }
+
         $payload = $event->getRequest()->request->all();
 
         foreach ($payload as $msys) {
-            $msys  = $msys['msys'] ?? null;
-            $event = $msys['message_event'] ?? $msys['unsubscribe_event'] ?? null;
+            $msys         = $msys['msys'] ?? null;
+            $messageEvent = $msys['message_event'] ?? $msys['unsubscribe_event'] ?? null;
 
-            if (!$event) {
+            if (!$messageEvent) {
                 continue;
             }
 
-            if (isset($event['rcpt_type']) && 'to' !== $event['rcpt_type']) {
+            if (isset($messageEvent['rcpt_type']) && 'to' !== $messageEvent['rcpt_type']) {
                 // Ignore cc/bcc
                 continue;
             }
 
-            $type        = $event['type'] ?? null;
-            $bounceClass = $event['bounce_class'] ?? null;
+            $type        = $messageEvent['type'] ?? null;
+            $bounceClass = $messageEvent['bounce_class'] ?? null;
 
             if ('bounce' === $type && !in_array((int) $bounceClass, [10, 30, 50, 51, 52, 53, 54, 90])) {
                 // Only parse hard bounces
@@ -52,17 +64,19 @@ class CallbackSubscriber implements EventSubscriberInterface
                 continue;
             }
 
-            $hashId = $event['rcpt_meta']['hashId'] ?? null;
+            $hashId = $messageEvent['rcpt_meta']['hashId'] ?? null;
 
             if ($hashId) {
-                $this->processCallbackByHashId($hashId, $event);
+                $this->processCallbackByHashId($hashId, $messageEvent);
 
                 continue;
             }
 
-            $rcptTo = $event['rcpt_to'] ?? '';
-            $this->processCallbackByEmailAddress($rcptTo, $event);
+            $rcptTo = $messageEvent['rcpt_to'] ?? '';
+            $this->processCallbackByEmailAddress($rcptTo, $messageEvent);
         }
+
+        $event->setResponse(new Response('Callback processed'));
     }
 
     /**
