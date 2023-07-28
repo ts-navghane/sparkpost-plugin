@@ -26,15 +26,69 @@ class SparkpostTransportTest extends MauticMysqlTestCase
     {
         $expectedResponses = [
             function ($method, $url, $options): MockResponse {
+                $payload = file_get_contents(__DIR__.'/../../SparkpostResponses/content-previewer.json');
                 Assert::assertEquals(Request::METHOD_POST, $method);
                 Assert::assertEquals('https://api.sparkpost.com/api/v1/utils/content-previewer/', $url);
-                $body = '{"results": {"subject": "Ahoy contact@an.email", "html": ""}}';
+                $requestBodyArray = json_decode($options['body'], true);
+                $payloadArray     = json_decode($payload, true);
+                Assert::assertArrayHasKey('UNSUBSCRIBETEXT', $requestBodyArray['substitution_data']);
+                Assert::assertArrayHasKey('UNSUBSCRIBEURL', $requestBodyArray['substitution_data']);
+                Assert::assertArrayHasKey('WEBVIEWTEXT', $requestBodyArray['substitution_data']);
+                Assert::assertArrayHasKey('WEBVIEWURL', $requestBodyArray['substitution_data']);
+                Assert::assertArrayHasKey('TRACKINGPIXEL', $requestBodyArray['substitution_data']);
+                // These keys have dynamic hash id for tracking, no way to validate these, so unsetting them
+                unset(
+                    $requestBodyArray['substitution_data']['UNSUBSCRIBETEXT'],
+                    $requestBodyArray['substitution_data']['UNSUBSCRIBEURL'],
+                    $requestBodyArray['substitution_data']['WEBVIEWTEXT'],
+                    $requestBodyArray['substitution_data']['WEBVIEWURL'],
+                    $requestBodyArray['substitution_data']['TRACKINGPIXEL'],
+                );
+                Assert::assertEquals($payloadArray, $requestBodyArray);
+                Assert::assertEquals(
+                    [
+                        'Authorization: some_api',
+                        'Content-Type: application/json',
+                        'Accept: */*',
+                        'Content-Length: 1157',
+                    ],
+                    $options['headers']
+                );
+                $body = '{"results": {"subject": "Hello there!", "html": "This is test body for {contactfield=email}!"}}';
 
                 return new MockResponse($body);
             },
             function ($method, $url, $options): MockResponse {
+                $payload = file_get_contents(__DIR__.'/../../SparkpostResponses/transmissions.json');
                 Assert::assertEquals(Request::METHOD_POST, $method);
                 Assert::assertEquals('https://api.sparkpost.com/api/v1/transmissions/', $url);
+                $requestBodyArray = json_decode($options['body'], true);
+                $payloadArray     = json_decode($payload, true);
+                Assert::assertArrayHasKey('UNSUBSCRIBETEXT', $requestBodyArray['recipients'][0]['substitution_data']);
+                Assert::assertArrayHasKey('UNSUBSCRIBEURL', $requestBodyArray['recipients'][0]['substitution_data']);
+                Assert::assertArrayHasKey('WEBVIEWTEXT', $requestBodyArray['recipients'][0]['substitution_data']);
+                Assert::assertArrayHasKey('WEBVIEWURL', $requestBodyArray['recipients'][0]['substitution_data']);
+                Assert::assertArrayHasKey('TRACKINGPIXEL', $requestBodyArray['recipients'][0]['substitution_data']);
+                // These keys have dynamic hash id for tracking, no way to validate these, so unsetting them
+                unset(
+                    $requestBodyArray['recipients'][0]['substitution_data']['UNSUBSCRIBETEXT'],
+                    $requestBodyArray['recipients'][0]['substitution_data']['UNSUBSCRIBEURL'],
+                    $requestBodyArray['recipients'][0]['substitution_data']['WEBVIEWTEXT'],
+                    $requestBodyArray['recipients'][0]['substitution_data']['WEBVIEWURL'],
+                    $requestBodyArray['recipients'][0]['substitution_data']['TRACKINGPIXEL'],
+                    $requestBodyArray['recipients'][0]['metadata']['hashId'],
+                    $requestBodyArray['recipients'][0]['metadata']['leadId'],
+                );
+                Assert::assertEquals($payloadArray, $requestBodyArray);
+                Assert::assertEquals(
+                    [
+                        'Authorization: some_api',
+                        'Content-Type: application/json',
+                        'Accept: */*',
+                        'Content-Length: 1370',
+                    ],
+                    $options['headers']
+                );
                 $body = '{"results": {"total_rejected_recipients": 0, "total_accepted_recipients": 1, "id": "11668787484950529"}}';
 
                 return new MockResponse($body);
@@ -59,7 +113,7 @@ class SparkpostTransportTest extends MauticMysqlTestCase
         $form->setValues(
             [
                 'lead_quickemail[subject]' => 'Hello there!',
-                'lead_quickemail[body]'    => 'This is test body!',
+                'lead_quickemail[body]'    => 'This is test body for {contactfield=email}!',
             ]
         );
         $this->client->submit($form);
@@ -71,8 +125,9 @@ class SparkpostTransportTest extends MauticMysqlTestCase
         $user       = $userHelper->getUser();
 
         Assert::assertSame('Hello there!', $email->getSubject());
-        Assert::assertStringContainsString('This is test body!', $email->getHtmlBody());
-        Assert::assertSame('This is test body!', $email->getTextBody());
+        Assert::assertStringContainsString('This is test body for {contactfield=email}!', $email->getHtmlBody());
+        Assert::assertSame('This is test body for {contactfield=email}!', $email->getTextBody());
+        Assert::assertSame('contact@an.email', $email->getMetadata()['contact@an.email']['tokens']['{contactfield=email}']);
         Assert::assertCount(1, $email->getFrom());
         Assert::assertSame($user->getName(), $email->getFrom()[0]->getName());
         Assert::assertSame($user->getEmail(), $email->getFrom()[0]->getAddress());
