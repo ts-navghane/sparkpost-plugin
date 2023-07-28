@@ -27,8 +27,8 @@ class SparkpostTransportTest extends MauticMysqlTestCase
         $expectedResponses = [
             function ($method, $url, $options): MockResponse {
                 $payload = file_get_contents(__DIR__.'/../../SparkpostResponses/content-previewer.json');
-                Assert::assertEquals(Request::METHOD_POST, $method);
-                Assert::assertEquals('https://api.sparkpost.com/api/v1/utils/content-previewer/', $url);
+                Assert::assertSame(Request::METHOD_POST, $method);
+                Assert::assertSame('https://api.sparkpost.com/api/v1/utils/content-previewer/', $url);
                 $requestBodyArray = json_decode($options['body'], true);
                 $payloadArray     = json_decode($payload, true);
                 Assert::assertArrayHasKey('UNSUBSCRIBETEXT', $requestBodyArray['substitution_data']);
@@ -44,8 +44,8 @@ class SparkpostTransportTest extends MauticMysqlTestCase
                     $requestBodyArray['substitution_data']['WEBVIEWURL'],
                     $requestBodyArray['substitution_data']['TRACKINGPIXEL'],
                 );
-                Assert::assertEquals($payloadArray, $requestBodyArray);
-                Assert::assertEquals(
+                Assert::assertSame($payloadArray, $requestBodyArray);
+                Assert::assertSame(
                     [
                         'Authorization: some_api',
                         'Content-Type: application/json',
@@ -60,8 +60,8 @@ class SparkpostTransportTest extends MauticMysqlTestCase
             },
             function ($method, $url, $options): MockResponse {
                 $payload = file_get_contents(__DIR__.'/../../SparkpostResponses/transmissions.json');
-                Assert::assertEquals(Request::METHOD_POST, $method);
-                Assert::assertEquals('https://api.sparkpost.com/api/v1/transmissions/', $url);
+                Assert::assertSame(Request::METHOD_POST, $method);
+                Assert::assertSame('https://api.sparkpost.com/api/v1/transmissions/', $url);
                 $requestBodyArray = json_decode($options['body'], true);
                 $payloadArray     = json_decode($payload, true);
                 Assert::assertArrayHasKey('UNSUBSCRIBETEXT', $requestBodyArray['recipients'][0]['substitution_data']);
@@ -79,8 +79,8 @@ class SparkpostTransportTest extends MauticMysqlTestCase
                     $requestBodyArray['recipients'][0]['metadata']['hashId'],
                     $requestBodyArray['recipients'][0]['metadata']['leadId'],
                 );
-                Assert::assertEquals($payloadArray, $requestBodyArray);
-                Assert::assertEquals(
+                Assert::assertSame($payloadArray, $requestBodyArray);
+                Assert::assertSame(
                     [
                         'Authorization: some_api',
                         'Content-Type: application/json',
@@ -103,13 +103,10 @@ class SparkpostTransportTest extends MauticMysqlTestCase
         $this->em->flush();
 
         $this->client->request(Request::METHOD_GET, "/s/contacts/email/{$contact->getId()}");
-
         Assert::assertTrue($this->client->getResponse()->isOk());
-        $crawler = new Crawler(
-            json_decode($this->client->getResponse()->getContent(), true)['newContent'],
-            $this->client->getInternalRequest()->getUri()
-        );
-        $form    = $crawler->selectButton('Send')->form();
+        $newContent = json_decode($this->client->getResponse()->getContent(), true)['newContent'];
+        $crawler    = new Crawler($newContent, $this->client->getInternalRequest()->getUri());
+        $form       = $crawler->selectButton('Send')->form();
         $form->setValues(
             [
                 'lead_quickemail[subject]' => 'Hello there!',
@@ -127,6 +124,7 @@ class SparkpostTransportTest extends MauticMysqlTestCase
         Assert::assertSame('Hello there!', $email->getSubject());
         Assert::assertStringContainsString('This is test body for {contactfield=email}!', $email->getHtmlBody());
         Assert::assertSame('This is test body for {contactfield=email}!', $email->getTextBody());
+        /** @phpstan-ignore-next-line */
         Assert::assertSame('contact@an.email', $email->getMetadata()['contact@an.email']['tokens']['{contactfield=email}']);
         Assert::assertCount(1, $email->getFrom());
         Assert::assertSame($user->getName(), $email->getFrom()[0]->getName());
