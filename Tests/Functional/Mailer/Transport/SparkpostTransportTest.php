@@ -44,8 +44,8 @@ class SparkpostTransportTest extends MauticMysqlTestCase
             },
         ];
 
-        /** @var MockHttpClient $mockHttpClient */
         $mockHttpClient = self::getContainer()->get(HttpClientInterface::class);
+        \assert($mockHttpClient instanceof MockHttpClient);
         $mockHttpClient->setResponseFactory($expectedResponses);
 
         $contact = $this->createContact('contact@an.email');
@@ -112,5 +112,25 @@ class SparkpostTransportTest extends MauticMysqlTestCase
         $this->em->persist($lead);
 
         return $lead;
+    }
+
+    private function assertSparkpostRequestBody(string $body): void
+    {
+        $bodyArray = json_decode($body, true);
+        Assert::assertSame('Admin User <admin@yoursite.com>', $bodyArray['content']['from']);
+        Assert::assertSame('Hello there!', $bodyArray['content']['subject']);
+        Assert::assertSame('value123', $bodyArray['content']['headers']['x-global-custom-header']);
+        Assert::assertSame('This is test body for {{{ CONTACTFIELDEMAIL }}}!<img height="1" width="1" src="{{{ TRACKINGPIXEL }}}" alt="" />', $bodyArray['content']['html']);
+        Assert::assertSame('This is test body for {{{ CONTACTFIELDEMAIL }}}!', $bodyArray['content']['text']);
+        Assert::assertSame('admin@mautic.test', $bodyArray['content']['text']);
+        Assert::assertSame(['open_tracking' => false, 'click_tracking' => false], $bodyArray['options']);
+        Assert::assertArrayHasKey('UNSUBSCRIBETEXT', $bodyArray['substitution_data']);
+        Assert::assertArrayHasKey('UNSUBSCRIBEURL', $bodyArray['substitution_data']);
+        Assert::assertArrayHasKey('WEBVIEWTEXT', $bodyArray['substitution_data']);
+        Assert::assertArrayHasKey('WEBVIEWURL', $bodyArray['substitution_data']);
+        Assert::assertArrayHasKey('SIGNATURE', $bodyArray['substitution_data']);
+        Assert::assertSame('Hello there!', $bodyArray['substitution_data']['SUBJECT']);
+        Assert::assertSame('contact@an.email', $bodyArray['substitution_data']['CONTACTFIELDEMAIL']);
+        Assert::assertArrayHasKey('TRACKINGPIXEL', $bodyArray['substitution_data']);
     }
 }
