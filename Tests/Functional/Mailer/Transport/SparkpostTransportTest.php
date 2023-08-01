@@ -44,8 +44,8 @@ class SparkpostTransportTest extends MauticMysqlTestCase
             },
         ];
 
+        /** @var MockHttpClient $mockHttpClient */
         $mockHttpClient = self::getContainer()->get(HttpClientInterface::class);
-        \assert($mockHttpClient instanceof MockHttpClient);
         $mockHttpClient->setResponseFactory($expectedResponses);
 
         $contact = $this->createContact('contact@an.email');
