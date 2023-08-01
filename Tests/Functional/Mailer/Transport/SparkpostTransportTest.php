@@ -12,13 +12,16 @@ use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class SparkpostTransportTest extends MauticMysqlTestCase
 {
     protected function setUp(): void
     {
-        $this->configParams['mailer_dsn']          = 'mautic+sparkpost+api://:some_api@some_host:25?region=us';
-        $this->configParams['messenger_dsn_email'] = 'sync://';
+        $this->configParams['mailer_dsn']            = 'mautic+sparkpost+api://:some_api@some_host:25?region=us';
+        $this->configParams['messenger_dsn_email']   = 'sync://';
+        $this->configParams['mailer_custom_headers'] = ['x-global-custom-header' => 'value123'];
+        $this->configParams['mailer_from_email']     = 'admin@mautic.test';
         parent::setUp();
     }
 
@@ -26,77 +29,23 @@ class SparkpostTransportTest extends MauticMysqlTestCase
     {
         $expectedResponses = [
             function ($method, $url, $options): MockResponse {
-                $payload = file_get_contents(__DIR__.'/../../SparkpostResponses/content-previewer.json');
                 Assert::assertSame(Request::METHOD_POST, $method);
                 Assert::assertSame('https://api.sparkpost.com/api/v1/utils/content-previewer/', $url);
-                $requestBodyArray = json_decode($options['body'], true);
-                $payloadArray     = json_decode($payload, true);
-                Assert::assertArrayHasKey('UNSUBSCRIBETEXT', $requestBodyArray['substitution_data']);
-                Assert::assertArrayHasKey('UNSUBSCRIBEURL', $requestBodyArray['substitution_data']);
-                Assert::assertArrayHasKey('WEBVIEWTEXT', $requestBodyArray['substitution_data']);
-                Assert::assertArrayHasKey('WEBVIEWURL', $requestBodyArray['substitution_data']);
-                Assert::assertArrayHasKey('TRACKINGPIXEL', $requestBodyArray['substitution_data']);
-                // These keys have dynamic hash id for tracking, no way to validate these, so unsetting them
-                unset(
-                    $requestBodyArray['substitution_data']['UNSUBSCRIBETEXT'],
-                    $requestBodyArray['substitution_data']['UNSUBSCRIBEURL'],
-                    $requestBodyArray['substitution_data']['WEBVIEWTEXT'],
-                    $requestBodyArray['substitution_data']['WEBVIEWURL'],
-                    $requestBodyArray['substitution_data']['TRACKINGPIXEL'],
-                );
-                Assert::assertSame($payloadArray, $requestBodyArray);
-                Assert::assertSame(
-                    [
-                        'Authorization: some_api',
-                        'Content-Type: application/json',
-                        'Accept: */*',
-                        'Content-Length: 1157',
-                    ],
-                    $options['headers']
-                );
-                $body = '{"results": {"subject": "Hello there!", "html": "This is test body for {contactfield=email}!"}}';
+                $this->assertSparkpostRequestBody($options['body']);
 
-                return new MockResponse($body);
+                return new MockResponse('{"results": {"subject": "Hello there!", "html": "This is test body for {contactfield=email}!"}}');
             },
             function ($method, $url, $options): MockResponse {
-                $payload = file_get_contents(__DIR__.'/../../SparkpostResponses/transmissions.json');
                 Assert::assertSame(Request::METHOD_POST, $method);
                 Assert::assertSame('https://api.sparkpost.com/api/v1/transmissions/', $url);
-                $requestBodyArray = json_decode($options['body'], true);
-                $payloadArray     = json_decode($payload, true);
-                Assert::assertArrayHasKey('UNSUBSCRIBETEXT', $requestBodyArray['recipients'][0]['substitution_data']);
-                Assert::assertArrayHasKey('UNSUBSCRIBEURL', $requestBodyArray['recipients'][0]['substitution_data']);
-                Assert::assertArrayHasKey('WEBVIEWTEXT', $requestBodyArray['recipients'][0]['substitution_data']);
-                Assert::assertArrayHasKey('WEBVIEWURL', $requestBodyArray['recipients'][0]['substitution_data']);
-                Assert::assertArrayHasKey('TRACKINGPIXEL', $requestBodyArray['recipients'][0]['substitution_data']);
-                // These keys have dynamic hash id for tracking, no way to validate these, so unsetting them
-                unset(
-                    $requestBodyArray['recipients'][0]['substitution_data']['UNSUBSCRIBETEXT'],
-                    $requestBodyArray['recipients'][0]['substitution_data']['UNSUBSCRIBEURL'],
-                    $requestBodyArray['recipients'][0]['substitution_data']['WEBVIEWTEXT'],
-                    $requestBodyArray['recipients'][0]['substitution_data']['WEBVIEWURL'],
-                    $requestBodyArray['recipients'][0]['substitution_data']['TRACKINGPIXEL'],
-                    $requestBodyArray['recipients'][0]['metadata']['hashId'],
-                    $requestBodyArray['recipients'][0]['metadata']['leadId'],
-                );
-                Assert::assertSame($payloadArray, $requestBodyArray);
-                Assert::assertSame(
-                    [
-                        'Authorization: some_api',
-                        'Content-Type: application/json',
-                        'Accept: */*',
-                        'Content-Length: 1370',
-                    ],
-                    $options['headers']
-                );
-                $body = '{"results": {"total_rejected_recipients": 0, "total_accepted_recipients": 1, "id": "11668787484950529"}}';
+                $this->assertSparkpostRequestBody($options['body']);
 
-                return new MockResponse($body);
+                return new MockResponse('{"results": {"total_rejected_recipients": 0, "total_accepted_recipients": 1, "id": "11668787484950529"}}');
             },
         ];
 
-        $mockHttpClient = self::getContainer()->get('http_client');
-        Assert::assertInstanceOf(MockHttpClient::class, $mockHttpClient); // @phpstan-ignore-line
+        $mockHttpClient = self::getContainer()->get(HttpClientInterface::class);
+        \assert($mockHttpClient instanceof MockHttpClient);
         $mockHttpClient->setResponseFactory($expectedResponses);
 
         $contact = $this->createContact('contact@an.email');
@@ -134,6 +83,26 @@ class SparkpostTransportTest extends MauticMysqlTestCase
         Assert::assertSame($contact->getEmail(), $email->getTo()[0]->getAddress());
         Assert::assertCount(1, $email->getReplyTo());
         Assert::assertSame('', $email->getReplyTo()[0]->getName());
+    }
+
+    private function assertSparkpostRequestBody(string $body): void
+    {
+        $bodyArray = json_decode($body, true);
+        Assert::assertSame('Admin User <admin@yoursite.com>', $bodyArray['content']['from']);
+        Assert::assertSame('value123', $bodyArray['content']['headers']['x-global-custom-header']);
+        Assert::assertSame('This is test body for {{{ CONTACTFIELDEMAIL }}}!<img height="1" width="1" src="{{{ TRACKINGPIXEL }}}" alt="" />', $bodyArray['content']['html']);
+        Assert::assertSame('admin@mautic.test', $bodyArray['content']['reply_to']);
+        Assert::assertSame('Hello there!', $bodyArray['content']['subject']);
+        Assert::assertSame('This is test body for {{{ CONTACTFIELDEMAIL }}}!', $bodyArray['content']['text']);
+        Assert::assertSame(['open_tracking' => false, 'click_tracking' => false], $bodyArray['options']);
+        Assert::assertSame('contact@an.email', $bodyArray['substitution_data']['CONTACTFIELDEMAIL']);
+        Assert::assertSame('Hello there!', $bodyArray['substitution_data']['SUBJECT']);
+        Assert::assertArrayHasKey('SIGNATURE', $bodyArray['substitution_data']);
+        Assert::assertArrayHasKey('TRACKINGPIXEL', $bodyArray['substitution_data']);
+        Assert::assertArrayHasKey('UNSUBSCRIBETEXT', $bodyArray['substitution_data']);
+        Assert::assertArrayHasKey('UNSUBSCRIBEURL', $bodyArray['substitution_data']);
+        Assert::assertArrayHasKey('WEBVIEWTEXT', $bodyArray['substitution_data']);
+        Assert::assertArrayHasKey('WEBVIEWURL', $bodyArray['substitution_data']);
     }
 
     private function createContact(string $email): Lead
