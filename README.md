@@ -15,3 +15,17 @@ This plugin enable Mautic 5 to run Sparkpost as a transport.
 - port: Your Sparkpost port
 - options:
   - region: Your Sparkpost region
+
+### Testing
+
+To run all tests `composer phpunit`
+
+To run unit tests `composer unit`
+
+To run functional tests `composer functional`
+
+### Static analysis tools
+
+To run fixes by friendsofphp/php-cs-fixer `composer fixcs`
+
+To run phpstan `composer phpstan`
