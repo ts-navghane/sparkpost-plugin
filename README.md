@@ -9,12 +9,10 @@ This plugin enable Mautic 5 to run Sparkpost as a transport.
 `mautic+sparkpost+api`
 
 #### Mautic Mailer DSN Example
-`mautic+sparkpost+api://:<api_key>@<host>:<port>?region=us`
+`'mailer_dsn' => 'mautic+sparkpost+api://:<api_key>@default?region=<region>',`
 - api_key: Get Sparkpost API key from https://app.sparkpost.com/account/api-keys/create
-- host: Your Sparkpost host
-- port: Your Sparkpost port
 - options:
-  - region: Your Sparkpost region
+  - region: `us` (SparkPost https://api.sparkpost.com/api/v1) OR `eu` (SparkPost EU https://api.eu.sparkpost.com/api/v1)
 
 ### Testing
 
