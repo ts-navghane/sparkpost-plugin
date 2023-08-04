@@ -13,9 +13,12 @@ use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 class SparkpostTransportTest extends MauticMysqlTestCase
 {
+    private TranslatorInterface $translator;
+
     protected function setUp(): void
     {
         $this->configParams['mailer_dsn']            = 'mautic+sparkpost+api://:some_api@some_host:25?region=us';
@@ -23,6 +26,7 @@ class SparkpostTransportTest extends MauticMysqlTestCase
         $this->configParams['mailer_custom_headers'] = ['x-global-custom-header' => 'value123'];
         $this->configParams['mailer_from_email']     = 'admin@mautic.test';
         parent::setUp();
+        $this->translator = self::getContainer()->get('translator');
     }
 
     public function testEmailSendToContactSync(): void
@@ -113,5 +117,46 @@ class SparkpostTransportTest extends MauticMysqlTestCase
         $this->em->persist($lead);
 
         return $lead;
+    }
+
+    /**
+     * @dataProvider dataInvalidDsn
+     *
+     * @param array<string, string> $data
+     */
+    public function testInvalidDsn(array $data, string $expectedMessage): void
+    {
+        // Request config edit page
+        $crawler = $this->client->request(Request::METHOD_GET, '/s/config/edit');
+        Assert::assertTrue($this->client->getResponse()->isOk());
+
+        // Set form data
+        $form = $crawler->selectButton('config[buttons][save]')->form();
+        $form->setValues($data + ['config[leadconfig][contact_columns]' => ['name', 'email', 'id']]);
+
+        // Check if there is the given validation error
+        $crawler = $this->client->submit($form);
+        Assert::assertTrue($this->client->getResponse()->isOk());
+        Assert::assertStringContainsString($this->translator->trans($expectedMessage, [], 'validators'), $crawler->text());
+    }
+
+    /**
+     * @return array<string, mixed[]>
+     */
+    public function dataInvalidDsn(): iterable
+    {
+        yield 'Empty region' => [
+            [
+                'config[emailconfig][mailer_dsn][options][list][0][value]' => '',
+            ],
+            'mautic.sparkpost.plugin.region.empty'
+        ];
+
+        yield 'Invalid region' => [
+            [
+                'config[emailconfig][mailer_dsn][options][list][0][value]' => 'invalid_region',
+            ],
+            'mautic.sparkpost.plugin.region.invalid'
+        ];
     }
 }

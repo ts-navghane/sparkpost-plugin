@@ -14,11 +14,13 @@ use Symfony\Component\Mailer\Transport\AbstractTransportFactory;
 use Symfony\Component\Mailer\Transport\Dsn;
 use Symfony\Component\Mailer\Transport\TransportInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 class SparkpostTransportFactory extends AbstractTransportFactory
 {
     public function __construct(
         private TransportCallback $transportCallback,
+        private TranslatorInterface $translator,
         EventDispatcherInterface $eventDispatcher,
         HttpClientInterface $client = null,
         LoggerInterface $logger = null
@@ -38,11 +40,15 @@ class SparkpostTransportFactory extends AbstractTransportFactory
     {
         if (SparkpostTransport::MAUTIC_SPARKPOST_API_SCHEME === $dsn->getScheme()) {
             if (!$region = $dsn->getOption('region')) {
-                throw new InvalidArgumentException('Empty region');
+                throw new InvalidArgumentException(
+                    $this->translator->trans('mautic.sparkpost.plugin.region.empty', [], 'validators')
+                );
             }
 
             if (!array_key_exists($region, SparkpostTransport::SPARK_POST_HOSTS)) {
-                throw new InvalidArgumentException('Invalid region');
+                throw new InvalidArgumentException(
+                    $this->translator->trans('mautic.sparkpost.plugin.region.invalid', [], 'validators')
+                );
             }
 
             return new SparkpostTransport(
