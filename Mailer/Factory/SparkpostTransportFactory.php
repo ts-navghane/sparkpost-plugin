@@ -40,15 +40,11 @@ class SparkpostTransportFactory extends AbstractTransportFactory
     {
         if (SparkpostTransport::MAUTIC_SPARKPOST_API_SCHEME === $dsn->getScheme()) {
             if (!$region = $dsn->getOption('region')) {
-                throw new InvalidArgumentException(
-                    $this->translator->trans('mautic.sparkpost.plugin.region.empty', [], 'validators')
-                );
+                throw new InvalidArgumentException($this->translator->trans('mautic.sparkpost.plugin.region.empty', [], 'validators'));
             }
 
             if (!array_key_exists($region, SparkpostTransport::SPARK_POST_HOSTS)) {
-                throw new InvalidArgumentException(
-                    $this->translator->trans('mautic.sparkpost.plugin.region.invalid', [], 'validators')
-                );
+                throw new InvalidArgumentException($this->translator->trans('mautic.sparkpost.plugin.region.invalid', [], 'validators'));
             }
 
             return new SparkpostTransport(

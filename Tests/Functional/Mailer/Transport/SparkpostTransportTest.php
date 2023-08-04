@@ -149,14 +149,14 @@ class SparkpostTransportTest extends MauticMysqlTestCase
             [
                 'config[emailconfig][mailer_dsn][options][list][0][value]' => '',
             ],
-            'mautic.sparkpost.plugin.region.empty'
+            'mautic.sparkpost.plugin.region.empty',
         ];
 
         yield 'Invalid region' => [
             [
                 'config[emailconfig][mailer_dsn][options][list][0][value]' => 'invalid_region',
             ],
-            'mautic.sparkpost.plugin.region.invalid'
+            'mautic.sparkpost.plugin.region.invalid',
         ];
     }
 }
