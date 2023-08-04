@@ -8,6 +8,7 @@ use Mautic\EmailBundle\Model\TransportCallback;
 use MauticPlugin\SparkpostBundle\Mailer\Transport\SparkpostTransport;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\Mailer\Exception\InvalidArgumentException;
 use Symfony\Component\Mailer\Exception\UnsupportedSchemeException;
 use Symfony\Component\Mailer\Transport\AbstractTransportFactory;
 use Symfony\Component\Mailer\Transport\Dsn;
@@ -36,9 +37,17 @@ class SparkpostTransportFactory extends AbstractTransportFactory
     public function create(Dsn $dsn): TransportInterface
     {
         if (SparkpostTransport::MAUTIC_SPARKPOST_API_SCHEME === $dsn->getScheme()) {
+            if (!$region = $dsn->getOption('region')) {
+                throw new InvalidArgumentException('Empty region');
+            }
+
+            if (!array_key_exists($region, SparkpostTransport::SPARK_POST_HOSTS)) {
+                throw new InvalidArgumentException('Invalid region');
+            }
+
             return new SparkpostTransport(
                 $this->getPassword($dsn),
-                $dsn->getOption('region'),
+                $region,
                 $this->transportCallback,
                 $this->client,
                 $this->dispatcher,
