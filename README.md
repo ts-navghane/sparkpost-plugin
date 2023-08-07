@@ -14,6 +14,8 @@ This plugin enable Mautic 5 to run Sparkpost as a transport.
 - options:
   - region: `us` (SparkPost https://api.sparkpost.com/api/v1) OR `eu` (SparkPost EU https://api.eu.sparkpost.com/api/v1)
 
+<img width="1105" alt="sparkpost-email-dsn-example" src="Assets/img/sparkpost-email-dsn-example.png">
+
 ### Testing
 
 To run all tests `composer phpunit`
