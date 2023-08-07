@@ -8,26 +8,33 @@ use Mautic\EmailBundle\Model\TransportCallback;
 use MauticPlugin\SparkpostBundle\Mailer\Factory\SparkpostTransportFactory;
 use MauticPlugin\SparkpostBundle\Mailer\Transport\SparkpostTransport;
 use PHPUnit\Framework\Assert;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\Mailer\Exception\InvalidArgumentException;
 use Symfony\Component\Mailer\Exception\UnsupportedSchemeException;
 use Symfony\Component\Mailer\Transport\Dsn;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 class SparkpostTransportFactoryTest extends TestCase
 {
     private SparkpostTransportFactory $sparkpostTransportFactory;
 
+    private TranslatorInterface|MockObject $translatorMock;
+
     protected function setUp(): void
     {
         $eventDispatcherMock   = $this->createMock(EventDispatcherInterface::class);
+        $this->translatorMock  = $this->createMock(TranslatorInterface::class);
         $transportCallbackMock = $this->createMock(TransportCallback::class);
         $httpClientMock        = $this->createMock(HttpClientInterface::class);
         $loggerMock            = $this->createMock(LoggerInterface::class);
 
         $this->sparkpostTransportFactory = new SparkpostTransportFactory(
             $transportCallbackMock,
+            $this->translatorMock,
             $eventDispatcherMock,
             $httpClientMock,
             $loggerMock
@@ -51,6 +58,7 @@ class SparkpostTransportFactoryTest extends TestCase
     public function testUnsupportedScheme(): void
     {
         $this->expectException(UnsupportedSchemeException::class);
+        $this->expectExceptionMessage('The "some+unsupported+scheme" scheme is not supported; supported schemes for mailer "sparkpost" are: "mautic+sparkpost+api".');
         $dsn = new Dsn(
             'some+unsupported+scheme',
             'host',
@@ -58,6 +66,47 @@ class SparkpostTransportFactoryTest extends TestCase
             'sparkpost_api_key',
             null,
             ['region' => 'us']
+        );
+        $this->sparkpostTransportFactory->create($dsn);
+    }
+
+    public function testEmptySparkpostRegion(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage("Sparkpost region is empty. Add 'region' as a option.");
+
+        $this->translatorMock->expects(self::once())
+            ->method('trans')
+            ->with('mautic.sparkpost.plugin.region.empty', [], 'validators')
+            ->willReturn("Sparkpost region is empty. Add 'region' as a option.");
+
+        $dsn = new Dsn(
+            'mautic+sparkpost+api',
+            'host',
+            null,
+            'sparkpost_api_key',
+            null,
+        );
+        $this->sparkpostTransportFactory->create($dsn);
+    }
+
+    public function testInvalidSparkpostRegion(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage("Sparkpost region is invalid. Add 'us' or 'eu' as a suitable region.");
+
+        $this->translatorMock->expects(self::once())
+            ->method('trans')
+            ->with('mautic.sparkpost.plugin.region.invalid', [], 'validators')
+            ->willReturn("Sparkpost region is invalid. Add 'us' or 'eu' as a suitable region.");
+
+        $dsn = new Dsn(
+            'mautic+sparkpost+api',
+            'host',
+            null,
+            'sparkpost_api_key',
+            null,
+            ['region' => 'some_invalid_region']
         );
         $this->sparkpostTransportFactory->create($dsn);
     }

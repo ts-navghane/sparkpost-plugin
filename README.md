@@ -9,11 +9,23 @@ This plugin enable Mautic 5 to run Sparkpost as a transport.
 `mautic+sparkpost+api`
 
 #### Mautic Mailer DSN Example
-`mautic+sparkpost+api://:<api_key>@<host>:<port>?region=us`
+`'mailer_dsn' => 'mautic+sparkpost+api://:<api_key>@default?region=<region>',`
 - api_key: Get Sparkpost API key from https://app.sparkpost.com/account/api-keys/create
-- host: Your Sparkpost host
-- port: Your Sparkpost port
 - options:
-  - region: Your Sparkpost region
+  - region: `us` (SparkPost https://api.sparkpost.com/api/v1) OR `eu` (SparkPost EU https://api.eu.sparkpost.com/api/v1)
 
 <img width="1105" alt="Screenshot 2023-08-07 at 12 57 39" src="https://github.com/escopecz/sparkpost-plugin/assets/1235442/acb8b5fc-6315-4ca7-a9ba-ec9822eb8eb4">
+
+### Testing
+
+To run all tests `composer phpunit`
+
+To run unit tests `composer unit`
+
+To run functional tests `composer functional`
+
+### Static analysis tools
+
+To run fixes by friendsofphp/php-cs-fixer `composer fixcs`
+
+To run phpstan `composer phpstan`

@@ -36,7 +36,7 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
 
     public const MAUTIC_SPARKPOST_API_SCHEME = 'mautic+sparkpost+api';
 
-    private const SPARK_POST_HOSTS = ['us' => 'api.sparkpost.com', 'eu' => 'api.eu.sparkpost.com'];
+    public const SPARK_POST_HOSTS = ['us' => 'api.sparkpost.com', 'eu' => 'api.eu.sparkpost.com'];
 
     private const STD_HEADER_KEYS = [
         'MIME-Version',
