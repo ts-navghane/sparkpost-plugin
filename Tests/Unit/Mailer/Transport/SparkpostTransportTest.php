@@ -16,7 +16,6 @@ use Symfony\Component\Mailer\Envelope;
 use Symfony\Component\Mailer\SentMessage;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
-use Symfony\Component\Mime\Header\Headers;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 
@@ -50,27 +49,18 @@ class SparkpostTransportTest extends TestCase
 
     public function testSendEmail(): void
     {
-        $sentMessageMock   = $this->createMock(SentMessage::class);
-        $mauticMessageMock = $this->createMock(MauticMessage::class);
-        $responseMock      = $this->createMock(ResponseInterface::class);
+        /** @var SentMessage&MockObject $sentMessageMock */
+        $sentMessageMock = $this->createMock(SentMessage::class);
 
-        $sentMessageMock->method('getOriginalMessage')
-            ->willReturn($mauticMessageMock);
+        /** @var ResponseInterface&MockObject $responseMock */
+        $responseMock = $this->createMock(ResponseInterface::class);
 
-        $fromAddress    = new Address('from@mautic.com', 'From Name');
-        $replyToAddress = new Address('reply@mautic.com', 'Reply To Name');
+        $mauticMessage = new MauticMessage();
+        $mauticMessage->from(new Address('from@mautic.com', 'From Name'));
+        $mauticMessage->replyTo(new Address('reply@mautic.com', 'Reply To Name'));
 
-        $mauticMessageMock->method('getFrom')
-            ->willReturn([$fromAddress]);
-
-        $mauticMessageMock->method('getReplyTo')
-            ->willReturn([$replyToAddress]);
-
-        $mauticMessageMock->method('getHeaders')
-            ->willReturn(new Headers());
-
-        $responseMock->method('getStatusCode')
-            ->willReturn(200);
+        $sentMessageMock->method('getOriginalMessage')->willReturn($mauticMessage);
+        $responseMock->method('getStatusCode')->willReturn(200);
 
         /** @phpstan-ignore-next-line */
         $this->httpClientMock->method('request')
