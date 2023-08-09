@@ -25,6 +25,7 @@ class SparkpostTransportTest extends MauticMysqlTestCase
         $this->configParams['messenger_dsn_email']   = 'sync://';
         $this->configParams['mailer_custom_headers'] = ['x-global-custom-header' => 'value123'];
         $this->configParams['mailer_from_email']     = 'admin@mautic.test';
+        $this->configParams['mailer_from_name']      = 'Admin';
         parent::setUp();
         $this->translator = self::getContainer()->get('translator');
     }
@@ -87,6 +88,43 @@ class SparkpostTransportTest extends MauticMysqlTestCase
         Assert::assertSame($contact->getEmail(), $email->getTo()[0]->getAddress());
         Assert::assertCount(1, $email->getReplyTo());
         Assert::assertSame('', $email->getReplyTo()[0]->getName());
+    }
+
+    public function testTestTransportButton(): void
+    {
+        $expectedResponses = [
+            function ($method, $url, $options): MockResponse {
+                Assert::assertSame(Request::METHOD_POST, $method);
+                Assert::assertSame('https://api.sparkpost.com/api/v1/utils/content-previewer/', $url);
+                $this->assertSparkpostTestRequestBody($options['body']);
+
+                return new MockResponse('{"results": {"subject": "Hello there!", "html": "This is test body for {contactfield=email}!"}}');
+            },
+            function ($method, $url, $options): MockResponse {
+                Assert::assertSame(Request::METHOD_POST, $method);
+                Assert::assertSame('https://api.sparkpost.com/api/v1/transmissions/', $url);
+                $this->assertSparkpostTestRequestBody($options['body']);
+
+                return new MockResponse('{"results": {"total_rejected_recipients": 0, "total_accepted_recipients": 1, "id": "11668787484950529"}}');
+            },
+        ];
+
+        /** @var MockHttpClient $mockHttpClient */
+        $mockHttpClient = self::getContainer()->get(HttpClientInterface::class);
+        $mockHttpClient->setResponseFactory($expectedResponses);
+        $this->client->request(Request::METHOD_GET, '/s/ajax?action=email:sendTestEmail');
+        Assert::assertTrue($this->client->getResponse()->isOk());
+        Assert::assertSame('{"success":1,"message":"Success!"}', $this->client->getResponse()->getContent());
+    }
+
+    private function assertSparkpostTestRequestBody(string $body): void
+    {
+        $bodyArray = json_decode($body, true);
+        Assert::assertSame('Admin <admin@mautic.test>', $bodyArray['content']['from']);
+        Assert::assertNull($bodyArray['content']['html']);
+        Assert::assertSame('admin@mautic.test', $bodyArray['content']['reply_to']);
+        Assert::assertSame('Mautic test email', $bodyArray['content']['subject']);
+        Assert::assertSame('Hi! This is a test email from Mautic. Testing...testing...1...2...3!', $bodyArray['content']['text']);
     }
 
     private function assertSparkpostRequestBody(string $body): void
