@@ -154,6 +154,7 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
     private function buildContent(MauticMessage $message): array
     {
         $fromAddress = current($message->getFrom());
+        $replyTo     = current($message->getReplyTo()) ?: $fromAddress;
 
         return [
             'from'        => !empty($fromAddress->getName())
@@ -163,7 +164,7 @@ class SparkpostTransport extends AbstractApiTransport implements TokenTransportI
             'headers'     => $this->buildHeaders($message) ?: new \stdClass(),
             'html'        => $message->getHtmlBody(),
             'text'        => $message->getTextBody(),
-            'reply_to'    => current($message->getReplyTo())->getAddress(),
+            'reply_to'    => $replyTo->getAddress(),
             'attachments' => $this->buildAttachments($message),
         ];
     }
