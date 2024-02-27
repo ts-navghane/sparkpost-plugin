@@ -58,7 +58,7 @@ class CallbackSubscriber implements EventSubscriberInterface
             $type        = $messageEvent['type'] ?? null;
             $bounceClass = $messageEvent['bounce_class'] ?? null;
 
-            if ('bounce' === $type && !in_array((int) $bounceClass, [10, 30, 50, 51, 52, 53, 54, 90])) {
+            if ('bounce' === $type && !in_array((int) $bounceClass, [10, 30, 50, 51, 52, 53, 54, 90]) || ('out_of_band' === $type && (int) $bounceClass === 60)) {
                 // Only parse hard bounces
                 // https://support.sparkpost.com/customer/portal/articles/1929896-bounce-classification-codes
                 continue;
