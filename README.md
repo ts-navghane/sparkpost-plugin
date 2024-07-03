@@ -1,6 +1,8 @@
-# Repository Moved
+# ⚠️ Repository Moved
 
 This repository has moved to a new location. Please visit the new repository at [acquia/mc-cs-plugin-sparkpost](https://github.com/acquia/mc-cs-plugin-sparkpost).
+
+---
 
 ### Mautic Sparkpost Plugin
 
